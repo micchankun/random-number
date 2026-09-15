@@ -15,13 +15,13 @@
 <div class="range"><label>最小</label><input id="minInput" inputmode="numeric" maxlength="4" value="0" aria-label="最小値"><span>〜</span><label>最大</label><input id="maxInput" inputmode="numeric" maxlength="4" value="9999" aria-label="最大値"><button id="rangeButton">範囲選択</button></div>
 <div id="rangeInfo" class="range-info">現在の範囲：0000 〜 9999</div>
 <div id="status" class="status">自動表示停止中</div>
-<div class="voice"><button id="voiceToggle" type="button">🔇 音声読み上げ：OFF</button><select id="voiceSelect" aria-label="読み上げ音声"></select></div>
+<div class="voice"><select id="voiceSelect" aria-label="読み上げ音声"></select></div>
 <div id="history" class="history"></div>
 <div class="controls">
 <button id="prev" class="prev">前の数字</button><button id="next" class="next">次の数字</button>
 <button id="auto" class="auto">自動表示開始</button>
 <div class="interval"><button id="dec" class="arrow">＜</button><button id="intervalButton" class="interval-display">5秒</button><button id="inc" class="arrow">＞</button><div id="menu" class="menu"></div></div>
-<button id="first" class="jump">最初に戻る</button><button id="last" class="last">最後に進む</button><button id="reset" class="reset">リセット</button>
+<button id="first" class="jump">最初に戻る</button><button id="last" class="last">最後に進む</button><button id="reset" class="reset">リセット</button><button id="voiceToggle" class="voice-toggle" type="button">🔇 音声読み上げ：OFF</button>
 </div>
 </main>
 <script>
