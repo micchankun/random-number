@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Move voice controls next to reset
+      - name: Move voice controls and add VOICEVOX Zundamon
         run: |
           python - <<'PY'
           from pathlib import Path
@@ -28,6 +28,49 @@ jobs:
               voice = '<div class="voice-controls"><button id="voiceToggle" class="voice-toggle" type="button">🔇 音声読み上げ：OFF</button><select id="voiceSelect" class="voice-select" aria-label="読み上げ音声"></select></div>'
               if marker in s:
                   s = s.replace(marker, marker + voice, 1)
+
+              if 'id="voicevoxCredit"' not in s:
+                  s = s.replace(voice + '</div>\n</main>', voice + '<div id="voicevoxCredit">VOICEVOX:ずんだもん</div></div>\n</main>', 1)
+
+              credit_css = '#voicevoxCredit{display:none;grid-column:1/-1;font-size:clamp(8px,1vw,11px);color:#9ca3af;font-weight:600;line-height:1.1}'
+              if '#voicevoxCredit{' not in s:
+                  s = s.replace('.voice-select:disabled{opacity:.55;cursor:not-allowed}', '.voice-select:disabled{opacity:.55;cursor:not-allowed}'+credit_css, 1)
+
+              old_vars = 'let minNumber=0,maxNumber=9999,numbers=[],currentIndex=0,autoRunning=false,autoTimer=null,intervalIndex=11,rangeMode=0,rangeBuffer=\'\',rangeTyping=false,voiceEnabled=false,selectedVoice=null,availableVoices=[];'
+              new_vars = 'let minNumber=0,maxNumber=9999,numbers=[],currentIndex=0,autoRunning=false,autoTimer=null,intervalIndex=11,rangeMode=0,rangeBuffer=\'\',rangeTyping=false,voiceEnabled=false,selectedVoice=null,availableVoices=[],voiceMode=\'browser\',voicevoxSpeakerId=3,currentAudio=null;'
+              if old_vars in s:
+                  s = s.replace(old_vars, new_vars, 1)
+
+              old_speak = "function speakNumber(){if(!voiceEnabled||!('speechSynthesis'in window))return;window.speechSynthesis.cancel();let text=fmt(numbers[currentIndex]).split('').join(' ');let u=new SpeechSynthesisUtterance(text);u.lang='ja-JP';if(selectedVoice)u.voice=selectedVoice;u.rate=1;u.pitch=1;window.speechSynthesis.speak(u)}"
+              new_speak = "async function speakZundamon(text){try{let base='http://127.0.0.1:50021';let qurl=base+'/audio_query?speaker='+voicevoxSpeakerId+'&'+new URLSearchParams({text:text}).toString();let qr=await fetch(qurl,{method:'POST'});if(!qr.ok)throw new Error('audio_query failed');let query=await qr.json();let sr=await fetch(base+'/synthesis?speaker='+voicevoxSpeakerId,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(query)});if(!sr.ok)throw new Error('synthesis failed');let blob=await sr.blob();if(currentAudio)currentAudio.pause();let url=URL.createObjectURL(blob);currentAudio=new Audio(url);currentAudio.onended=()=>URL.revokeObjectURL(url);await currentAudio.play()}catch(e){console.warn('VOICEVOXを利用できません。VOICEVOXを起動し、CORS設定を確認してください。',e)}}\nfunction speakNumber(){if(!voiceEnabled)return;let text=fmt(numbers[currentIndex]).split('').join(' ');if(voiceMode==='zundamon'){if('speechSynthesis'in window)window.speechSynthesis.cancel();speakZundamon(text);return}if(!('speechSynthesis'in window))return;window.speechSynthesis.cancel();let u=new SpeechSynthesisUtterance(text);u.lang='ja-JP';if(selectedVoice)u.voice=selectedVoice;u.rate=1;u.pitch=1;window.speechSynthesis.speak(u)}"
+              if old_speak in s:
+                  s = s.replace(old_speak, new_speak, 1)
+
+              old_load = "function loadVoices(){if(!('speechSynthesis'in window)){voiceSelect.disabled=true;voiceToggle.disabled=true;voiceToggle.textContent='🔇 音声非対応';return}availableVoices=window.speechSynthesis.getVoices().filter(v=>v.lang&&v.lang.toLowerCase().startsWith('ja'));voiceSelect.innerHTML='';if(!availableVoices.length){let o=document.createElement('option');o.value='';o.textContent='標準音声（ブラウザ）';voiceSelect.appendChild(o);voiceSelect.disabled=true;return}voiceSelect.disabled=false;availableVoices.forEach((v,i)=>{let o=document.createElement('option');o.value=String(i);o.textContent=v.name+'（'+v.lang+'）';voiceSelect.appendChild(o)});let saved=localStorage.getItem('randomNumberVoice');let idx=availableVoices.findIndex(v=>v.voiceURI===saved);if(idx<0)idx=0;voiceSelect.value=String(idx);selectedVoice=availableVoices[idx]}"
+              new_load = "function loadVoices(){voiceSelect.innerHTML='';let z=document.createElement('option');z.value='voicevox-zundamon';z.textContent='ずんだもん（VOICEVOX）';voiceSelect.appendChild(z);if(!('speechSynthesis'in window)){voiceSelect.disabled=false;voiceToggle.disabled=false;let o=document.createElement('option');o.value='browser-unavailable';o.textContent='ブラウザ音声非対応';o.disabled=true;voiceSelect.appendChild(o);return}availableVoices=window.speechSynthesis.getVoices().filter(v=>v.lang&&v.lang.toLowerCase().startsWith('ja'));availableVoices.forEach((v,i)=>{let o=document.createElement('option');o.value='browser-'+i;o.textContent=v.name+'（'+v.lang+'）';voiceSelect.appendChild(o)});voiceSelect.disabled=false;let saved=localStorage.getItem('randomNumberVoice');if(saved==='voicevox-zundamon'){voiceMode='zundamon';voiceSelect.value=saved;selectedVoice=null}else{let idx=availableVoices.findIndex(v=>v.voiceURI===saved);if(idx<0)idx=availableVoices.length?0:0;if(availableVoices.length){voiceMode='browser';voiceSelect.value='browser-'+idx;selectedVoice=availableVoices[idx]}else{voiceMode='zundamon';voiceSelect.value='voicevox-zundamon';selectedVoice=null}}}"
+              if old_load in s:
+                  s = s.replace(old_load, new_load, 1)
+
+              old_set = "function setVoiceEnabled(enabled){voiceEnabled=enabled;voiceToggle.textContent=enabled?'🔊 音声読み上げ：ON':'🔇 音声読み上げ：OFF';voiceToggle.classList.toggle('on',enabled);if(!enabled&&'speechSynthesis'in window)window.speechSynthesis.cancel()}"
+              new_set = "function setVoiceEnabled(enabled){voiceEnabled=enabled;voiceToggle.textContent=enabled?'🔊 音声読み上げ：ON':'🔇 音声読み上げ：OFF';voiceToggle.classList.toggle('on',enabled);if(!enabled&&'speechSynthesis'in window)window.speechSynthesis.cancel();if(!enabled&&currentAudio)currentAudio.pause();document.getElementById('voicevoxCredit').style.display=enabled&&voiceMode==='zundamon'?'block':'none'}"
+              if old_set in s:
+                  s = s.replace(old_set, new_set, 1)
+
+              old_cycle = "function cycleVoice(){if(!availableVoices.length||voiceSelect.disabled)return;let i=availableVoices.findIndex(v=>v.voiceURI===selectedVoice?.voiceURI);i=(i+1)%availableVoices.length;selectedVoice=availableVoices[i];voiceSelect.value=String(i);localStorage.setItem('randomNumberVoice',selectedVoice.voiceURI);if(voiceEnabled)speakNumber()}"
+              new_cycle = "function cycleVoice(){if(voiceSelect.disabled||!voiceSelect.options.length)return;let i=(voiceSelect.selectedIndex+1)%voiceSelect.options.length;voiceSelect.selectedIndex=i;voiceSelect.dispatchEvent(new Event('change'))}"
+              if old_cycle in s:
+                  s = s.replace(old_cycle, new_cycle, 1)
+
+              old_change = "voiceSelect.onchange=()=>{let i=Number(voiceSelect.value);selectedVoice=availableVoices[i]||null;if(selectedVoice)localStorage.setItem('randomNumberVoice',selectedVoice.voiceURI);if(voiceEnabled)speakNumber();restartTimer()}"
+              new_change = "voiceSelect.onchange=()=>{if(voiceSelect.value==='voicevox-zundamon'){voiceMode='zundamon';selectedVoice=null;localStorage.setItem('randomNumberVoice','voicevox-zundamon')}else{voiceMode='browser';let i=Number(voiceSelect.value.replace('browser-',''));selectedVoice=availableVoices[i]||null;if(selectedVoice)localStorage.setItem('randomNumberVoice',selectedVoice.voiceURI)}document.getElementById('voicevoxCredit').style.display=voiceEnabled&&voiceMode==='zundamon'?'block':'none';if(voiceEnabled)speakNumber();restartTimer()}"
+              if old_change in s:
+                  s = s.replace(old_change, new_change, 1)
+
+              if 'function initVoicevox()' not in s:
+                  insert_before = "if('speechSynthesis'in window){window.speechSynthesis.addEventListener('voiceschanged',loadVoices);loadVoices()}"
+                  init = "async function initVoicevox(){try{let r=await fetch('http://127.0.0.1:50021/speakers');if(!r.ok)return;let speakers=await r.json();let z=speakers.find(s=>s.name==='ずんだもん');let style=z?.styles?.find(st=>st.name==='ノーマル')||z?.styles?.[0];if(style)voicevoxSpeakerId=style.id}catch(e){}}\n"
+                  s = s.replace(insert_before, init+insert_before, 1)
+
               p.write_text(s, encoding='utf-8')
 
           def move_mobile(path):
@@ -49,5 +92,5 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html mobile.html
           if git diff --cached --quiet; then exit 0; fi
-          git commit -m "音声ボタンと声変更をリセットの隣へ配置"
+          git commit -m "ずんだもんVOICEVOX読み上げを追加"
           git push
