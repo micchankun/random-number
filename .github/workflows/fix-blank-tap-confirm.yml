@@ -1,0 +1,36 @@
+name: Fix blank tap range confirmation
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Patch index.html
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+          old="document.addEventListener('pointerdown',e=>{if(!rangeMode)return;if(e.target.closest('input,button,select'))return;document.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',code:'Enter',bubbles:true}))});"
+          new="document.addEventListener('pointerdown',e=>{if(!rangeMode)return;if(e.target.closest('input,button,select'))return;const input=rangeMode===1?minInput:maxInput;finishRangeInput(input.value,rangeMode);});"
+          if old not in s: raise SystemExit('blank tap handler not found')
+          s=s.replace(old,new,1)
+          p.write_text(s,encoding='utf-8')
+          PY
+      - name: Commit patched file
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Make blank tap confirm range input"
+          git push
