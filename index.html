@@ -63,12 +63,9 @@ document.addEventListener('pointerdown',e=>{
 });
 // RANGE_BLANK_TAP_CONFIRM_V1_END
 
-// RANGE_INPUT_TAP_KEYBOARD_V4
-[minInput,maxInput].forEach(input=>input.addEventListener('pointerdown',e=>{e.preventDefault();rangeButton.click();setTimeout(()=>{input.readOnly=false;input.setAttribute('inputmode','numeric');input.focus();input.select()},80)}));
-// RANGE_INPUT_TAP_KEYBOARD_V4_END
-// RANGE_INPUT_TAP_KEYBOARD_V5
-[minInput,maxInput].forEach(input=>input.addEventListener('pointerdown',e=>{if(rangeMode===0){e.preventDefault();if(typeof startRange==='function')startRange();else if(typeof startRangeMode==='function')startRangeMode();minInput.readOnly=false;maxInput.readOnly=false;input.setAttribute('inputmode','numeric');input.focus();input.select()}}));
-// RANGE_INPUT_TAP_KEYBOARD_V5_END
+// RANGE_INPUT_TAP_KEYBOARD_V6
+[minInput,maxInput].forEach(input=>input.addEventListener('pointerdown',e=>{e.stopPropagation();let mode=input===minInput?1:2;if(rangeMode===0){if(typeof startRange==='function')startRange();else if(typeof startRangeMode==='function')startRangeMode()}rangeMode=mode;rangeBuffer='';rangeTyping=false;minInput.readOnly=mode!==1;maxInput.readOnly=mode!==2;minInput.classList.toggle('range-active',mode===1);maxInput.classList.toggle('range-active',mode===2);rangeInfo.classList.remove('range-error');rangeInfo.textContent=mode===1?'最小値を入力 → Enterで決定':'最大値を入力 → Enterで決定';input.setAttribute('inputmode','numeric');input.focus();input.select()}));
+// RANGE_INPUT_TAP_KEYBOARD_V6_END
 </script>
 </body>
 </html>
