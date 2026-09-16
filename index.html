@@ -161,5 +161,44 @@ historyToggle?.addEventListener('click',toggleHistory);historyToggle?.addEventLi
   },true);
 })();
 </script>
+<!-- MOBILE_KEYBOARD_LAUNCH_FIX_V1 -->
+<script>
+(()=>{
+  const mobile=window.matchMedia('(max-width: 600px)');
+  if(!mobile.matches)return;
+  const isRangeTarget=t=>t===rangeButton||t===minInput||t===maxInput;
+  window.addEventListener('pointerdown',e=>{
+    const t=e.target;
+    if(t!==rangeButton && t!==minInput && t!==maxInput)return;
+    const input=t===rangeButton?minInput:t;
+    setTimeout(()=>{
+      if(t===rangeButton && rangeMode===0){
+        startRangeMode();
+        minInput.readOnly=false;
+        minInput.classList.add('range-active');
+      }
+      input.readOnly=false;
+      input.focus({preventScroll:true});
+      try{input.select()}catch(_){}
+    },0);
+  },true);
+  window.addEventListener('touchstart',e=>{
+    const t=e.target;
+    if(!isRangeTarget(t))return;
+    const input=t===rangeButton?minInput:t;
+    setTimeout(()=>{
+      if(t===rangeButton && rangeMode===0){
+        startRangeMode();
+        minInput.readOnly=false;
+        minInput.classList.add('range-active');
+      }
+      input.readOnly=false;
+      input.focus({preventScroll:true});
+      try{input.select()}catch(_){}
+    },0);
+  },{capture:true,passive:true});
+})();
+</script>
+
 </body>
 </html>
