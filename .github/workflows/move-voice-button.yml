@@ -14,42 +14,42 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Patch site
+      - name: Patch mobile site
         run: |
           python - <<'PY'
           from pathlib import Path
-          marker_start='// RANGE_INPUT_TAP_KEYBOARD_V6'
-          marker_end='// RANGE_INPUT_TAP_KEYBOARD_V6_END'
-          for name in ('index.html','mobile.html'):
-              p=Path(name)
-              s=p.read_text(encoding='utf-8')
-              for old in ('V4','V5'):
-                  a_marker=f'// RANGE_INPUT_TAP_KEYBOARD_{old}'
-                  b_marker=f'// RANGE_INPUT_TAP_KEYBOARD_{old}_END'
-                  while a_marker in s:
-                      a=s.find(a_marker)
-                      b=s.find(b_marker,a)
-                      if b < 0: raise SystemExit('marker end not found in '+name)
-                      b=s.find('\n',b)
-                      s=s[:a]+(s[b+1:] if b>=0 else '')
-              while marker_start in s:
-                  a=s.find(marker_start)
-                  b=s.find(marker_end,a)
-                  if b < 0: raise SystemExit('marker end not found in '+name)
+          p=Path('mobile.html')
+          s=p.read_text(encoding='utf-8')
+          marker_start='// RANGE_INPUT_TAP_KEYBOARD_V7'
+          marker_end='// RANGE_INPUT_TAP_KEYBOARD_V7_END'
+          for old in ('V4','V5','V6'):
+              a_marker=f'// RANGE_INPUT_TAP_KEYBOARD_{old}'
+              b_marker=f'// RANGE_INPUT_TAP_KEYBOARD_{old}_END'
+              while a_marker in s:
+                  a=s.find(a_marker)
+                  b=s.find(b_marker,a)
+                  if b < 0: raise SystemExit('marker end not found')
                   b=s.find('\n',b)
                   s=s[:a]+(s[b+1:] if b>=0 else '')
-              marker=f'''{marker_start}
-          [minInput,maxInput].forEach(input=>input.addEventListener('pointerdown',e=>{{e.stopPropagation();let mode=input===minInput?1:2;if(rangeMode===0){{if(typeof startRange==='function')startRange();else if(typeof startRangeMode==='function')startRangeMode()}}rangeMode=mode;rangeBuffer='';rangeTyping=false;minInput.readOnly=mode!==1;maxInput.readOnly=mode!==2;minInput.classList.toggle('range-active',mode===1);maxInput.classList.toggle('range-active',mode===2);rangeInfo.classList.remove('range-error');rangeInfo.textContent=mode===1?'最小値を入力 → Enterで決定':'最大値を入力 → Enterで決定';input.setAttribute('inputmode','numeric');input.focus();input.select()}}));
+          while marker_start in s:
+              a=s.find(marker_start)
+              b=s.find(marker_end,a)
+              if b < 0: raise SystemExit('marker end not found')
+              b=s.find('\n',b)
+              s=s[:a]+(s[b+1:] if b>=0 else '')
+          marker=f'''{marker_start}
+          [minInput,maxInput].forEach(input=>input.addEventListener('pointerdown',e=>{{e.stopPropagation();let mode=input===minInput?1:2;if(rangeMode===0){{stopAuto();rangeMode=mode;rangeBuffer='';rangeTyping=false;minInput.value=minNumber;maxInput.value=maxNumber;minInput.readOnly=mode!==1;maxInput.readOnly=mode!==2}}else{{rangeMode=mode;rangeBuffer='';rangeTyping=false;minInput.readOnly=mode!==1;maxInput.readOnly=mode!==2}}minInput.classList.toggle('range-active',mode===1);maxInput.classList.toggle('range-active',mode===2);rangeInfo.classList.remove('error');rangeInfo.textContent=mode===1?'最小値を入力して決定 → 最大値':'最大値を入力して決定';input.setAttribute('inputmode','numeric');input.focus();input.select()}}));
+          rangeButton.onclick=()=>{{if(rangeMode)return;flash(rangeButton);startRange();minInput.readOnly=false;maxInput.readOnly=true;minInput.classList.add('range-active');maxInput.classList.remove('range-active');rangeInfo.textContent='最小値を入力して決定 → 最大値';minInput.setAttribute('inputmode','numeric');minInput.focus();minInput.select()}};
           {marker_end}
           '''
-              s=s.replace('</script>',marker+'</script>',1)
-              p.write_text(s,encoding='utf-8')
+          s=s.replace('</script>',marker+'</script>',1)
+          p.write_text(s,encoding='utf-8')
           PY
       - name: Commit site files
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add index.html mobile.html
+          git add mobile.html
           git diff --cached --quiet && exit 0
-          git commit -m "範囲入力タップ時のキーボードと二重入力を修正"
+          git commit -m "スマホ版の範囲入力キーボード表示を修正"
           git push
