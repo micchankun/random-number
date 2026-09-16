@@ -18,19 +18,26 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
-          marker = "// RANGE_INPUT_TAP_START_V2\n[minInput,maxInput].forEach(input=>input.addEventListener('pointerdown',e=>{if(!rangeMode){e.preventDefault();startRangeMode()}}));\n// RANGE_INPUT_TAP_START_V2_END\n"
+          marker = "// RANGE_INPUT_TAP_START_V3\n[minInput,maxInput].forEach(input=>input.addEventListener('pointerdown',e=>{if(!rangeMode){e.preventDefault();startRangeMode()}setTimeout(()=>{input.readOnly=false;input.setAttribute('inputmode','numeric');input.focus();input.select()},50)}));\n// RANGE_INPUT_TAP_START_V3_END\n"
           for name in ('index.html','mobile.html'):
               p=Path(name)
               s=p.read_text(encoding='utf-8')
               if 'function startRangeMode()' not in s:
                   raise SystemExit('startRangeMode not found in '+name)
-              a=s.find('// RANGE_INPUT_TAP_START_V')
-              if a>=0:
+              # 入力欄タップ用の旧マーカーを除去
+              while '// RANGE_INPUT_TAP_START_V' in s:
+                  a=s.find('// RANGE_INPUT_TAP_START_V')
                   b=s.find('// RANGE_INPUT_TAP_START_V',a+1)
+                  if b < 0:
+                      raise SystemExit('range tap marker end not found in '+name)
                   end=s.find('\n',b)
-                  if b>=0:
-                      b2=s.find('\n',b)+1
-                      s=s[:a]+s[b2:]
+                  if end < 0:
+                      end=len(s)
+                  s=s[:a]+s[end+1:]
+              # 範囲モード開始時にも入力欄を編集可能にし、キーボードを開く
+              old="rangeMode=1;rangeBuffer='';rangeTyping=false;minInput.value=minNumber;maxInput.value=maxNumber;minInput.readOnly=true;maxInput.readOnly=true;"
+              new="rangeMode=1;rangeBuffer='';rangeTyping=false;minInput.value=minNumber;maxInput.value=maxNumber;minInput.readOnly=false;maxInput.readOnly=false;"
+              s=s.replace(old,new,1)
               s=s.replace('</script>',marker+'</script>',1)
               p.write_text(s,encoding='utf-8')
           PY
@@ -40,5 +47,5 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html mobile.html
           git diff --cached --quiet && exit 0
-          git commit -m "最小値と最大値の入力欄タップで範囲選択を開始"
+          git commit -m "最小値と最大値の入力欄タップでキーボードを表示"
           git push
