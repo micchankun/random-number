@@ -11,20 +11,15 @@ jobs:
   patch:
     runs-on: ubuntu-latest
     steps:
-      - name: Apply hotfix through GitHub API
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPO: ${{ github.repository }}
+      - uses: actions/checkout@v4
+      - name: Patch index.html
         shell: python
         run: |
-          import base64, json, os, urllib.request
-          api = f"https://api.github.com/repos/{os.environ['REPO']}/contents/index.html"
-          req = urllib.request.Request(api, headers={"Authorization": f"Bearer {os.environ['GH_TOKEN']}", "Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28"})
-          with urllib.request.urlopen(req) as r:
-              meta = json.load(r)
-          raw = base64.b64decode(meta['content']).decode('utf-8')
+          from pathlib import Path
+          p = Path('index.html')
+          s = p.read_text(encoding='utf-8')
           marker = '<!-- MOBILE_RANGE_INPUT_HOTFIX_V1 -->'
-          if marker in raw:
+          if marker in s:
               print('Hotfix already present')
               raise SystemExit(0)
           patch = '''
@@ -42,11 +37,11 @@ jobs:
     },true);
     input.addEventListener('beforeinput',e=>{
       if(e.inputType==='insertText'||e.inputType==='insertCompositionText'||e.inputType==='insertFromPaste'){
-        const data=(e.data??'').replace(/\\D/g,'');
+        const data=(e.data??'').replace(/\D/g,'');
         e.preventDefault();
         e.stopImmediatePropagation();
         if(!data)return;
-        const old=input.value.replace(/\\D/g,'');
+        const old=input.value.replace(/\D/g,'');
         const start=input.selectionStart??old.length;
         const end=input.selectionEnd??old.length;
         input.value=(old.slice(0,start)+data+old.slice(end)).slice(0,4);
@@ -68,14 +63,22 @@ jobs:
       }
     },true);
     input.addEventListener('keydown',e=>{
-      if(/^\\d$/.test(e.key)||e.key==='Backspace'||e.key==='Delete') e.stopImmediatePropagation();
+      if(/^\d$/.test(e.key)||e.key==='Backspace'||e.key==='Delete') e.stopImmediatePropagation();
     },true);
   }
 })();
 </script>
 '''
-          raw = raw.replace('</body>', patch + '</body>')
-          payload = json.dumps({'message':'Fix mobile range input keyboard and duplicate digits','content':base64.b64encode(raw.encode('utf-8')).decode('ascii'),'sha':meta['sha'],'branch':'main'}).encode('utf-8')
-          put = urllib.request.Request(api, data=payload, method='PUT', headers={"Authorization": f"Bearer {os.environ['GH_TOKEN']}", "Accept": "application/vnd.github+json", "Content-Type": "application/json", "X-GitHub-Api-Version": "2022-11-28"})
-          with urllib.request.urlopen(put) as r:
-              print(r.read().decode('utf-8')[:500])
+          s = s.replace('</body>', patch + '</body>')
+          p.write_text(s, encoding='utf-8')
+      - name: Commit patch
+        run: |
+          if git diff --quiet -- index.html; then
+            echo 'No changes to commit'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html
+          git commit -m 'Fix mobile range input keyboard and duplicate digits'
+          git push
