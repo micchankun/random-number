@@ -29,6 +29,7 @@ jobs:
                   if b < 0: raise SystemExit('marker end not found')
                   b=s.find('\n',b)
                   s=s[:a]+(s[b+1:] if b>=0 else '')
+          s=s.replace('for(let i=Math.max(0,index-50);i<index;i++)','for(let i=0;i<index;i++)')
           marker_start='// RANGE_INPUT_TAP_KEYBOARD_V8'
           marker_end='// RANGE_INPUT_TAP_KEYBOARD_V8_END'
           marker=f'''{marker_start}
@@ -47,5 +48,5 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add mobile.html
           git diff --cached --quiet && exit 0
-          git commit -m "スマホ版の数字二重入力を修正"
+          git commit -m "スマホ版の履歴を全件表示に修正"
           git push
