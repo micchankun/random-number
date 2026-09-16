@@ -1,0 +1,70 @@
+name: Fix mobile range keyboard
+
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-mobile-keyboard.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch mobile keyboard behavior
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('index.html')
+          s = p.read_text(encoding='utf-8')
+          marker = '<!-- MOBILE_KEYBOARD_LAUNCH_FIX_V1 -->'
+          if marker not in s:
+              block = '''<!-- MOBILE_KEYBOARD_LAUNCH_FIX_V1 -->
+          <script>
+          (()=>{
+            const mobile=window.matchMedia('(max-width: 600px)');
+            if(!mobile.matches)return;
+            const isRangeTarget=t=>t===rangeButton||t===minInput||t===maxInput;
+            window.addEventListener('pointerdown',e=>{
+              const t=e.target;
+              if(t!==rangeButton && t!==minInput && t!==maxInput)return;
+              const input=t===rangeButton?minInput:t;
+              setTimeout(()=>{
+                if(t===rangeButton && rangeMode===0){
+                  startRangeMode();
+                  minInput.readOnly=false;
+                  minInput.classList.add('range-active');
+                }
+                input.readOnly=false;
+                input.focus({preventScroll:true});
+                try{input.select()}catch(_){}
+              },0);
+            },true);
+            window.addEventListener('touchstart',e=>{
+              const t=e.target;
+              if(!isRangeTarget(t))return;
+              const input=t===rangeButton?minInput:t;
+              setTimeout(()=>{
+                if(t===rangeButton && rangeMode===0){
+                  startRangeMode();
+                  minInput.readOnly=false;
+                  minInput.classList.add('range-active');
+                }
+                input.readOnly=false;
+                input.focus({preventScroll:true});
+                try{input.select()}catch(_){}
+              },0);
+            },{capture:true,passive:true});
+          })();
+          </script>
+          '''
+              s = s.replace('</body>', block + '\n</body>', 1)
+              p.write_text(s, encoding='utf-8')
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git diff --cached --quiet || git commit -m "Fix mobile range keyboard launch"
+          git push
