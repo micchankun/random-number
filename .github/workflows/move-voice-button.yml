@@ -1,6 +1,7 @@
-name: Remove local Yukkuri voice and fix range selection focus
+name: Fix touch range input
 
 on:
+  workflow_dispatch:
   push:
     paths:
       - '.github/workflows/move-voice-button.yml'
@@ -9,86 +10,36 @@ permissions:
   contents: write
 
 jobs:
-  cleanup:
+  fix:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Fix range selection input behavior
+      - name: Patch touch range behavior
         run: |
           python - <<'PY'
           from pathlib import Path
           import re
 
-          FOCUS_FIX = r'''// RANGE_BUTTON_FOCUS_FIX_V1
-          rangeButton.addEventListener('click',()=>{
-              setTimeout(()=>{
-                  if(rangeMode){
-                      minInput.focus();
-                      minInput.select();
-                  }
-              },0);
-          });
-          // RANGE_BUTTON_FOCUS_FIX_V1_END
-          '''
-
-          TOUCH_FIX = r'''// RANGE_TOUCH_INPUT_FIX_V3
-          [minInput,maxInput].forEach(input=>{
-              input.readOnly=false;
-              input.addEventListener('input',()=>{
-                  if(!rangeMode)return;
-                  const normalized=normalize(input.value).replace(/[^0-9]/g,'').slice(0,4);
-                  input.value=normalized;
-                  rangeBuffer=normalized;
-                  rangeTyping=normalized.length>0;
-              });
-          });
-          const confirmRangeByTouch=()=>{
-              if(!rangeMode)return;
-              rangeKey({key:'Enter',preventDefault(){}});
-          };
-          document.addEventListener('pointerup',e=>{
-              if(!rangeMode)return;
-              if(e.target.closest('input,button,select'))return;
-              confirmRangeByTouch();
-          });
-          // RANGE_TOUCH_INPUT_FIX_V3_END
-          '''
-
-          def cleanup(path):
-              p = Path(path)
-              s = p.read_text(encoding='utf-8')
-
-              s = re.sub(r'// YUKKURI_LOCAL_VOICE_V1.*?// YUKKURI_LOCAL_VOICE_V1_END\s*', '', s, flags=re.S)
-
-              s = s.replace('minInput.readOnly=true;maxInput.readOnly=true;', 'minInput.readOnly=false;maxInput.readOnly=false;')
-
-              pattern = r'function startRange\(\)\{.*?\nrangeButton\.onclick='
-              replacement = r'''function startRange(){stopAuto();rangeMode=1;rangeBuffer='';rangeTyping=false;minInput.value=minNumber;maxInput.value=maxNumber;minInput.readOnly=false;maxInput.readOnly=false;setFocus(1);setTimeout(()=>minInput.select(),0);rangeInfo.textContent='最小値を入力して決定 → 最大値';rangeInfo.classList.remove('error')}
-          function rangeKey(e){if(!rangeMode)return false;let digit=normalize(e.key);if(/^[0-9]$/.test(digit)){e.preventDefault();let input=rangeMode===1?minInput:maxInput;if(!rangeTyping){rangeBuffer='';rangeTyping=true;input.value=''}if(rangeBuffer.length<4){rangeBuffer+=digit;input.value=rangeBuffer}return true}if(e.key==='Backspace'){e.preventDefault();let input=rangeMode===1?minInput:maxInput;if(!rangeTyping){rangeBuffer=normalize(input.value)}if(rangeBuffer.length){rangeBuffer=rangeBuffer.slice(0,-1);input.value=rangeBuffer;rangeTyping=true}return true}if(e.key==='Enter'){e.preventDefault();let input=rangeMode===1?minInput:maxInput;let value=rangeTyping?rangeBuffer:normalize(input.value);let n=Number(value);if(rangeMode===1){if(!Number.isInteger(n)||n<0||n>9999){rangeInfo.textContent='最小値は0000〜9999';rangeInfo.classList.add('error');return true}minInput.value=n;rangeMode=2;rangeBuffer='';rangeTyping=false;setFocus(2);setTimeout(()=>maxInput.select(),0);rangeInfo.textContent='最大値を入力して決定';return true}if(!applyRange())return true;cancelRange();return true}if(e.key==='Escape'){e.preventDefault();cancelRange();return true}e.preventDefault();return true}
-          rangeButton.onclick='''
-              m = re.search(pattern, s, flags=re.S)
-              if not m:
-                  raise SystemExit(f'Range function block not found in {path}')
-              s = s[:m.start()] + replacement + s[m.end():]
-
-              s = re.sub(r'// RANGE_BLANK_TAP_CONFIRM_V[12].*?// RANGE_BLANK_TAP_CONFIRM_V[12]_END\s*', '', s, flags=re.S)
-              s = re.sub(r'// RANGE_TOUCH_INPUT_FIX_V[23].*?// RANGE_TOUCH_INPUT_FIX_V[23]_END\s*', '', s, flags=re.S)
-              if 'RANGE_TOUCH_INPUT_FIX_V3' not in s:
-                  s = s.replace('</script>', TOUCH_FIX + '\n</script>', 1)
-
-              if 'RANGE_BUTTON_FOCUS_FIX_V1' not in s:
-                  s = s.replace('</script>', FOCUS_FIX + '\n</script>', 1)
-
+          def patch(path):
+              p=Path(path)
+              s=p.read_text(encoding='utf-8')
+              s=s.replace('minInput.readOnly=true;maxInput.readOnly=true;','minInput.readOnly=false;maxInput.readOnly=false;')
+              old=r'''function startRange\(\)\{.*?\nrangeButton\.onclick='''
+              new='''function startRange(){stopAuto();rangeMode=1;rangeBuffer="";rangeTyping=false;minInput.value=minNumber;maxInput.value=maxNumber;minInput.readOnly=false;maxInput.readOnly=false;setFocus(1);setTimeout(()=>{minInput.focus();minInput.select()},50);rangeInfo.textContent="最小値を入力して決定 → 最大値";rangeInfo.classList.remove("error")}\nfunction rangeKey(e){if(!rangeMode)return false;let digit=normalize(e.key);if(/^[0-9]$/.test(digit)){e.preventDefault();let input=rangeMode===1?minInput:maxInput;if(!rangeTyping){rangeBuffer="";rangeTyping=true;input.value=""}if(rangeBuffer.length<4){rangeBuffer+=digit;input.value=rangeBuffer}return true}if(e.key==='Backspace'){e.preventDefault();let input=rangeMode===1?minInput:maxInput;if(!rangeTyping)rangeBuffer=normalize(input.value);rangeBuffer=rangeBuffer.slice(0,-1);input.value=rangeBuffer;rangeTyping=true;return true}if(e.key==='Enter'){e.preventDefault();let input=rangeMode===1?minInput:maxInput;let value=rangeTyping?rangeBuffer:normalize(input.value);let n=Number(value);if(rangeMode===1){if(!Number.isInteger(n)||n<0||n>9999){rangeInfo.textContent="最小値は0000〜9999";rangeInfo.classList.add("error");return true}minInput.value=n;rangeMode=2;rangeBuffer="";rangeTyping=false;setFocus(2);setTimeout(()=>{maxInput.focus();maxInput.select()},50);rangeInfo.textContent="最大値を入力して決定";return true}if(!applyRange())return true;cancelRange();return true}if(e.key==='Escape'){e.preventDefault();cancelRange();return true}e.preventDefault();return true}\nrangeButton.onclick='''
+              s,n=re.subn(old,new,s,count=1,flags=re.S)
+              if n!=1: raise SystemExit(f'patch failed: {path}')
+              marker='''// TOUCH_RANGE_FINAL_V4\n[minInput,maxInput].forEach(input=>{input.readOnly=false;input.setAttribute("inputmode","numeric");input.addEventListener("input",()=>{if(!rangeMode)return;let v=normalize(input.value).replace(/[^0-9]/g,"").slice(0,4);input.value=v;rangeBuffer=v;rangeTyping=v.length>0})});\nrangeButton.addEventListener("pointerup",()=>{if(rangeMode)setTimeout(()=>{minInput.focus();minInput.select()},50)});\n// TOUCH_RANGE_FINAL_V4_END\n'''
+              s=re.sub(r'// TOUCH_RANGE_FINAL_V[0-9]+.*?// TOUCH_RANGE_FINAL_V[0-9]+_END\\s*','',s,flags=re.S)
+              s=s.replace('</script>',marker+'</script>',1)
               p.write_text(s,encoding='utf-8')
-
-          cleanup('index.html')
-          cleanup('mobile.html')
+          patch('index.html')
+          patch('mobile.html')
           PY
-      - name: Commit changes
+      - name: Commit site files
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html mobile.html
-          if git diff --cached --quiet; then exit 0; fi
-          git commit -m "スマホ・タブレットのタッチ入力を修正"
+          git diff --cached --quiet && exit 0
+          git commit -m "スマホの範囲選択でキーボードを表示"
           git push
