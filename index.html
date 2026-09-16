@@ -55,158 +55,13 @@ document.addEventListener('pointerdown',e=>{if(!rangeMode)return;if(e.target.clo
 function toggleHistory(){if(!historyPanel)return;let collapsed=historyPanel.classList.toggle('collapsed');historyArrow.textContent=collapsed?'▸':'▾';historyToggle.setAttribute('aria-expanded',String(!collapsed));}
 historyToggle?.addEventListener('click',toggleHistory);historyToggle?.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();toggleHistory()}});
 </script>
-<!-- MOBILE_TABLET_RANGE_INPUT_FIX_V2 -->
-<script>
-(()=>{
-  const mobileTablet=window.matchMedia('(max-width: 900px)');
-  if(!mobileTablet.matches)return;
-  const inputs=[minInput,maxInput].filter(Boolean);
-  const focusForTouch=(input,mode)=>{
-    if(rangeMode===0)startRangeMode();
-    rangeMode=mode;
-    rangeBuffer='';
-    rangeTyping=false;
-    minInput.readOnly=mode!==1;
-    maxInput.readOnly=mode!==2;
-    minInput.classList.toggle('range-active',mode===1);
-    maxInput.classList.toggle('range-active',mode===2);
-    rangeInfo.classList.remove('range-error');
-    rangeInfo.textContent=mode===1?'最小値を入力 → Enterで決定':'最大値を入力 → Enterで決定';
-    input.setAttribute('inputmode','numeric');
-    input.focus({preventScroll:true});
-    input.select();
-  };
-  rangeButton.addEventListener('pointerdown',e=>{
-    e.stopImmediatePropagation();
-    if(rangeMode!==0)return;
-    flash(rangeButton);
-    startRangeMode();
-    minInput.readOnly=false;
-    minInput.classList.add('range-active');
-    minInput.focus({preventScroll:true});
-    minInput.select();
-  },true);
-  inputs.forEach(input=>{
-    input.addEventListener('pointerdown',e=>{
-      e.stopImmediatePropagation();
-      focusForTouch(input,input===minInput?1:2);
-    },true);
-    input.addEventListener('keydown',e=>{
-      const digit=normalizeDigits(e.key);
-      if(/^[0-9]$/.test(digit)){
-        e.preventDefault();
-        e.stopImmediatePropagation();
-        const mode=input===minInput?1:2;
-        if(rangeMode!==mode)focusForTouch(input,mode);
-        if(!rangeTyping){rangeBuffer='';rangeTyping=true;input.value=''}
-        if(rangeBuffer.length<4){rangeBuffer+=digit;input.value=rangeBuffer}
-        return;
-      }
-      if(e.key==='Backspace'||e.key==='Delete'){
-        e.preventDefault();
-        e.stopImmediatePropagation();
-        if(rangeMode!== (input===minInput?1:2))return;
-        if(rangeTyping){rangeBuffer=rangeBuffer.slice(0,-1);input.value=rangeBuffer;if(rangeBuffer==='')rangeTyping=false}
-        return;
-      }
-      if(e.key==='Enter'){
-        e.preventDefault();
-        e.stopImmediatePropagation();
-        const mode=input===minInput?1:2;
-        const value=rangeTyping?rangeBuffer:input.value;
-        finishRangeInput(value,mode);
-        return;
-      }
-    },true);
-    input.addEventListener('beforeinput',e=>{
-      if(e.inputType==='insertText'||e.inputType==='insertCompositionText'||e.inputType==='insertFromPaste'){
-        const data=normalizeDigits(e.data??'').replace(/\D/g,'');
-        e.preventDefault();
-        e.stopImmediatePropagation();
-        if(!data)return;
-        if(rangeMode!==(input===minInput?1:2))focusForTouch(input,input===minInput?1:2);
-        if(!rangeTyping){rangeBuffer='';rangeTyping=true;input.value=''}
-        if(rangeBuffer.length<4){rangeBuffer=(rangeBuffer+data).slice(0,4);input.value=rangeBuffer}
-        input.dispatchEvent(new Event('input',{bubbles:true}));
-        return;
-      }
-    },true);
-  });
-  document.addEventListener('pointerdown',e=>{
-    if(!rangeMode)return;
-    if(e.target.closest('.range-controls,button,select'))return;
-    const input=rangeMode===1?minInput:maxInput;
-    const value=rangeTyping?rangeBuffer:input.value;
-    finishRangeInput(value,rangeMode);
-  },true);
-})();
-</script>
-<!-- MOBILE_TABLET_DOUBLE_INPUT_GUARD -->
-<script>
-(()=>{
-  const mq=window.matchMedia('(max-width: 600px)');
-  if(!mq.matches)return;
-  let handledDigit='';
-  window.addEventListener('keydown',e=>{
-    if(e.target!==minInput&&e.target!==maxInput)return;
-    const digit=normalizeDigits(e.key);
-    if(!/^[0-9]$/.test(digit))return;
-    handledDigit=digit;
-    setTimeout(()=>{handledDigit=''},150);
-  },true);
-  window.addEventListener('beforeinput',e=>{
-    if(e.target!==minInput&&e.target!==maxInput)return;
-    const data=normalizeDigits(e.data??'').replace(/\D/g,'');
-    if(data&&data===handledDigit){e.preventDefault();e.stopImmediatePropagation();handledDigit='';}
-  },true);
-})();
-</script>
-<!-- MOBILE_KEYBOARD_LAUNCH_FIX_V1 -->
+<!-- MOBILE_RANGE_INPUT_NATIVE_FIX_V3 -->
 <script>
 (()=>{
   const mobile=window.matchMedia('(max-width: 600px)');
   if(!mobile.matches)return;
-  const isRangeTarget=t=>t===rangeButton||t===minInput||t===maxInput;
-  window.addEventListener('pointerdown',e=>{
-    const t=e.target;
-    if(t!==rangeButton && t!==minInput && t!==maxInput)return;
-    const input=t===rangeButton?minInput:t;
-    setTimeout(()=>{
-      if(t===rangeButton && rangeMode===0){
-        startRangeMode();
-        minInput.readOnly=false;
-        minInput.classList.add('range-active');
-      }
-      input.readOnly=false;
-      input.focus({preventScroll:true});
-      try{input.select()}catch(_){}
-    },0);
-  },true);
-  window.addEventListener('touchstart',e=>{
-    const t=e.target;
-    if(!isRangeTarget(t))return;
-    const input=t===rangeButton?minInput:t;
-    setTimeout(()=>{
-      if(t===rangeButton && rangeMode===0){
-        startRangeMode();
-        minInput.readOnly=false;
-        minInput.classList.add('range-active');
-      }
-      input.readOnly=false;
-      input.focus({preventScroll:true});
-      try{input.select()}catch(_){}
-    },0);
-  },{capture:true,passive:true});
-})();
-</script>
-
-<!-- MOBILE_KEYBOARD_TOUCH_FIX_V2 -->
-<script>
-(()=>{
-  const mobile=window.matchMedia('(max-width: 600px)');
-  if(!mobile.matches)return;
-  const focusInput=(input)=>{
-    if(!input)return;
+  const inputs=[minInput,maxInput];
+  const activate=(input)=>{
     const mode=input===minInput?1:2;
     if(rangeMode===0)startRangeMode();
     rangeMode=mode;
@@ -221,28 +76,49 @@ historyToggle?.addEventListener('click',toggleHistory);historyToggle?.addEventLi
     input.readOnly=false;
     input.setAttribute('inputmode','numeric');
     input.focus({preventScroll:true});
-    try{input.setSelectionRange(input.value.length,input.value.length)}catch(_){}
+    try{input.select()}catch(_){}
   };
-  const onTouchEnd=(e)=>{
-    const t=e.target;
-    if(t===rangeButton){
-      e.stopImmediatePropagation();
-      startRangeMode();
+  const launchFromTouch=(e)=>{
+    const target=e.target;
+    const button=target.closest?.('#rangeButton');
+    const input=target.closest?.('#minInput,#maxInput');
+    if(!button&&!input)return;
+    e.stopImmediatePropagation();
+    if(button){
+      if(rangeMode===0)startRangeMode();
       minInput.readOnly=false;
+      maxInput.readOnly=true;
       minInput.classList.add('range-active');
-      minInput.setAttribute('inputmode','numeric');
+      maxInput.classList.remove('range-active');
+      rangeBuffer='';
+      rangeTyping=false;
+      rangeInfo.classList.remove('range-error');
+      rangeInfo.textContent='最小値を入力 → Enterで決定';
       minInput.focus({preventScroll:true});
-      try{minInput.setSelectionRange(minInput.value.length,minInput.value.length)}catch(_){}
-      return;
-    }
-    if(t===minInput||t===maxInput){
-      e.stopImmediatePropagation();
-      focusInput(t);
+      try{minInput.select()}catch(_){}
+    }else{
+      activate(input);
     }
   };
-  rangeButton.addEventListener('touchend',onTouchEnd,{capture:true,passive:false});
-  minInput.addEventListener('touchend',onTouchEnd,{capture:true,passive:false});
-  maxInput.addEventListener('touchend',onTouchEnd,{capture:true,passive:false});
+  rangeButton.addEventListener('touchend',launchFromTouch,{capture:true,passive:false});
+  minInput.addEventListener('touchend',launchFromTouch,{capture:true,passive:false});
+  maxInput.addEventListener('touchend',launchFromTouch,{capture:true,passive:false});
+  rangeButton.addEventListener('pointerup',launchFromTouch,{capture:true,passive:false});
+  minInput.addEventListener('pointerup',launchFromTouch,{capture:true,passive:false});
+  maxInput.addEventListener('pointerup',launchFromTouch,{capture:true,passive:false});
+  window.addEventListener('keydown',e=>{
+    if(e.target!==minInput&&e.target!==maxInput)return;
+    if(/^\d$/.test(normalizeDigits(e.key))||e.key==='Backspace'||e.key==='Delete'||e.key==='Enter')e.stopImmediatePropagation();
+  },true);
+  inputs.forEach(input=>{
+    input.addEventListener('input',()=>{
+      if(!rangeMode||input.readOnly)return;
+      const v=normalizeDigits(input.value).replace(/\D/g,'').slice(0,4);
+      input.value=v;
+      rangeBuffer=v;
+      rangeTyping=true;
+    });
+  });
 })();
 </script>
 
