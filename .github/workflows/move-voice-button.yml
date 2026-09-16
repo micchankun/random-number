@@ -18,19 +18,18 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
-          marker_start='// RANGE_INPUT_TAP_KEYBOARD_V4'
-          marker_end='// RANGE_INPUT_TAP_KEYBOARD_V4_END'
+          marker_start='// RANGE_INPUT_TAP_KEYBOARD_V5'
+          marker_end='// RANGE_INPUT_TAP_KEYBOARD_V5_END'
           for name in ('index.html','mobile.html'):
               p=Path(name)
               s=p.read_text(encoding='utf-8')
-              # 既存の同系マーカーを削除
               while marker_start in s:
                   a=s.find(marker_start)
                   b=s.find(marker_end,a)
                   if b < 0: raise SystemExit('marker end not found in '+name)
                   b=s.find('\n',b)
                   s=s[:a]+(s[b+1:] if b>=0 else '')
-              marker=f'''{marker_start}\n[minInput,maxInput].forEach(input=>input.addEventListener('pointerdown',e=>{{e.preventDefault();rangeButton.click();setTimeout(()=>{{input.readOnly=false;input.setAttribute('inputmode','numeric');input.focus();input.select()}},80)}}));\n{marker_end}\n'''
+              marker=f'''{marker_start}\n[minInput,maxInput].forEach(input=>input.addEventListener('pointerdown',e=>{{if(rangeMode===0){{e.preventDefault();if(typeof startRange==='function')startRange();else if(typeof startRangeMode==='function')startRangeMode();minInput.readOnly=false;maxInput.readOnly=false;input.setAttribute('inputmode','numeric');input.focus();input.select()}}}}));\n{marker_end}\n'''
               s=s.replace('</script>',marker+'</script>',1)
               p.write_text(s,encoding='utf-8')
           PY
@@ -40,5 +39,5 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html mobile.html
           git diff --cached --quiet && exit 0
-          git commit -m "最小値と最大値タップで範囲選択とキーボードを起動"
+          git commit -m "入力欄タップで数字キーボードを即時表示"
           git push
