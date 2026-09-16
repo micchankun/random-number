@@ -14,36 +14,32 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Patch touch range behavior
+      - name: Patch range input tap behavior
         run: |
           python - <<'PY'
           from pathlib import Path
 
+          marker = '''// RANGE_INPUT_TAP_START_V1
+[minInput,maxInput].forEach(input=>{
+  input.addEventListener('pointerdown',e=>{
+    if(!rangeMode){
+      e.preventDefault();
+      startRangeMode();
+    }
+  });
+});
+// RANGE_INPUT_TAP_START_V1_END
+'''
+
           def patch(path):
-              p = Path(path)
-              s = p.read_text(encoding='utf-8')
-              s = s.replace('minInput.readOnly=true;maxInput.readOnly=true;', 'minInput.readOnly=false;maxInput.readOnly=false;')
-
-              start = s.find('function startRange(){')
-              end = s.find('rangeButton.onclick=', start)
-              if start < 0 or end < 0:
-                  raise SystemExit(f'startRange block not found: {path}')
-
-              new_block = '''function startRange(){stopAuto();rangeMode=1;rangeBuffer="";rangeTyping=false;minInput.value=minNumber;maxInput.value=maxNumber;minInput.readOnly=false;maxInput.readOnly=false;setFocus(1);setTimeout(()=>{minInput.focus();minInput.select()},80);rangeInfo.textContent="最小値を入力して決定 → 最大値";rangeInfo.classList.remove("error")}
-function rangeKey(e){if(!rangeMode)return false;let digit=normalize(e.key);if(/^[0-9]$/.test(digit)){e.preventDefault();let input=rangeMode===1?minInput:maxInput;if(!rangeTyping){rangeBuffer="";rangeTyping=true;input.value=""}if(rangeBuffer.length<4){rangeBuffer+=digit;input.value=rangeBuffer}return true}if(e.key==='Backspace'){e.preventDefault();let input=rangeMode===1?minInput:maxInput;if(!rangeTyping)rangeBuffer=normalize(input.value);rangeBuffer=rangeBuffer.slice(0,-1);input.value=rangeBuffer;rangeTyping=true;return true}if(e.key==='Enter'){e.preventDefault();let input=rangeMode===1?minInput:maxInput;let value=rangeTyping?rangeBuffer:normalize(input.value);let n=Number(value);if(rangeMode===1){if(!Number.isInteger(n)||n<0||n>9999){rangeInfo.textContent="最小値は0000〜9999";rangeInfo.classList.add("error");return true}minInput.value=n;rangeMode=2;rangeBuffer="";rangeTyping=false;setFocus(2);setTimeout(()=>{maxInput.focus();maxInput.select()},80);rangeInfo.textContent="最大値を入力して決定";return true}if(!applyRange())return true;cancelRange();return true}if(e.key==='Escape'){e.preventDefault();cancelRange();return true}e.preventDefault();return true}
-'''
-              s = s[:start] + new_block + s[end:]
-
-              marker = '''// TOUCH_RANGE_FINAL_V6
-[minInput,maxInput].forEach(input=>{input.readOnly=false;input.setAttribute("inputmode","numeric");input.addEventListener("input",()=>{if(!rangeMode)return;let v=normalize(input.value).replace(/[^0-9]/g,"").slice(0,4);input.value=v;rangeBuffer=v;rangeTyping=v.length>0})});
-rangeButton.addEventListener("pointerup",()=>{if(rangeMode)setTimeout(()=>{minInput.focus();minInput.select()},80)});
-document.addEventListener("pointerup",e=>{if(!rangeMode)return;if(e.target.closest&&e.target.closest(".range-controls"))return;setTimeout(()=>{if(rangeMode){document.dispatchEvent(new KeyboardEvent("keydown",{key:"Enter",bubbles:true,cancelable:true}))}},0)});
-// TOUCH_RANGE_FINAL_V6_END
-'''
+              p=Path(path)
+              s=p.read_text(encoding='utf-8')
               import re
-              s = re.sub(r'// TOUCH_RANGE_FINAL_V[0-9]+.*?// TOUCH_RANGE_FINAL_V[0-9]+_END\\s*', '', s, flags=re.S)
-              s = s.replace('</script>', marker + '</script>', 1)
-              p.write_text(s, encoding='utf-8')
+              s=re.sub(r'// RANGE_INPUT_TAP_START_V[0-9]+.*?// RANGE_INPUT_TAP_START_V[0-9]+_END\s*','',s,flags=re.S)
+              if 'function startRangeMode()' not in s:
+                  raise SystemExit(f'startRangeMode not found: {path}')
+              s=s.replace('</script>',marker+'</script>',1)
+              p.write_text(s,encoding='utf-8')
 
           patch('index.html')
           patch('mobile.html')
@@ -54,5 +50,5 @@ document.addEventListener("pointerup",e=>{if(!rangeMode)return;if(e.target.close
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html mobile.html
           git diff --cached --quiet && exit 0
-          git commit -m "スマホの範囲選択入力を修正"
+          git commit -m "最小値と最大値の入力欄タップで範囲選択を開始"
           git push
