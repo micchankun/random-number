@@ -14,52 +14,40 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Patch mobile site
+      - name: Patch range apply behavior
         run: |
           python - <<'PY'
           from pathlib import Path
-          p=Path('mobile.html')
-          s=p.read_text(encoding='utf-8')
-          for old in ('V4','V5','V6','V7','V8'):
-              a_marker=f'// RANGE_INPUT_TAP_KEYBOARD_{old}'
-              b_marker=f'// RANGE_INPUT_TAP_KEYBOARD_{old}_END'
-              while a_marker in s:
-                  a=s.find(a_marker)
-                  b=s.find(b_marker,a)
-                  if b < 0: raise SystemExit('marker end not found')
-                  b=s.find('\n',b)
-                  s=s[:a]+(s[b+1:] if b>=0 else '')
-          s=s.replace('for(let i=Math.max(0,index-50);i<index;i++)','for(let i=0;i<index;i++)')
-          marker_start='// RANGE_INPUT_TAP_KEYBOARD_V8'
-          marker_end='// RANGE_INPUT_TAP_KEYBOARD_V8_END'
-          marker=f'''{marker_start}
-          document.addEventListener('keydown',e=>{{if(!rangeMode)return;if(e.target!==minInput&&e.target!==maxInput)return;let digit=normalize(e.key);if(/^[0-9]$/.test(digit)||e.key==='Backspace')e.stopImmediatePropagation()}},true);
-          [minInput,maxInput].forEach(input=>input.addEventListener('input',e=>{{if(!rangeMode||input.readOnly)return;let v=normalize(input.value).replace(/\\D/g,'').slice(0,4);input.value=v;rangeBuffer=v;rangeTyping=v!==''}}));
-          [minInput,maxInput].forEach(input=>input.addEventListener('pointerdown',e=>{{e.stopPropagation();let mode=input===minInput?1:2;if(rangeMode===0){{stopAuto();rangeMode=mode;rangeBuffer='';rangeTyping=false;minInput.value=minNumber;maxInput.value=maxNumber;minInput.readOnly=mode!==1;maxInput.readOnly=mode!==2}}else{{rangeMode=mode;rangeBuffer='';rangeTyping=false;minInput.readOnly=mode!==1;maxInput.readOnly=mode!==2}}minInput.classList.toggle('range-active',mode===1);maxInput.classList.toggle('range-active',mode===2);rangeInfo.classList.remove('error');rangeInfo.textContent=mode===1?'最小値を入力して決定 → 最大値':'最大値を入力して決定';input.setAttribute('inputmode','numeric');input.focus();input.select()}}));
-          rangeButton.onclick=()=>{{if(rangeMode)return;flash(rangeButton);startRange();minInput.readOnly=false;maxInput.readOnly=true;minInput.classList.add('range-active');maxInput.classList.remove('range-active');rangeInfo.textContent='最小値を入力して決定 → 最大値';minInput.setAttribute('inputmode','numeric');minInput.focus();minInput.select()}};
-          {marker_end}
-          '''
-          s=s.replace('</script>',marker+'</script>',1)
-          p.write_text(s,encoding='utf-8')
-          PY
-      - name: Patch PC and tablet site
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          p=Path('index.html')
-          s=p.read_text(encoding='utf-8')
-          old='for(let i=Math.max(0,currentIndex-50);i<currentIndex;i++)'
-          new='for(let i=0;i<currentIndex;i++)'
-          if old not in s:
-              raise SystemExit('PC/tablet history limit pattern not found')
-          s=s.replace(old,new,1)
-          p.write_text(s,encoding='utf-8')
+          import re
+
+          def patch_index(s):
+              pattern = r"function rangeKey\(e\)\{.*?\}\nrangeButton\.onclick"
+              repl = """function rangeKey(e){if(!rangeMode)return false;let digit=normalize(e.key);if(rangeMode===3){e.preventDefault();return true}if(/^[0-9]$/.test(digit)){e.preventDefault();let input=rangeMode===1?minInput:maxInput;if(!rangeTyping){rangeBuffer='';rangeTyping=true;input.value=''}if(rangeBuffer.length<4){rangeBuffer+=digit;input.value=rangeBuffer}return true}if(e.key==='Backspace'){e.preventDefault();if(rangeTyping){rangeBuffer=rangeBuffer.slice(0,-1);(rangeMode===1?minInput:maxInput).value=rangeBuffer}return true}if(e.key==='Enter'){e.preventDefault();let input=rangeMode===1?minInput:maxInput;let value=rangeTyping?rangeBuffer:input.value;if(rangeMode===1){let n=Number(normalize(value));if(!Number.isInteger(n)||n<0||n>9999){rangeInfo.textContent='最小値は0000〜9999';rangeInfo.classList.add('range-error');return true}minInput.value=n;rangeMode=2;rangeBuffer='';rangeTyping=false;setFocus(2);rangeInfo.textContent='最大値を入力して決定';return true}let n=Number(normalize(value));if(!Number.isInteger(n)||n<0||n>9999){rangeInfo.textContent='最大値は0000〜9999';rangeInfo.classList.add('range-error');return true}maxInput.value=n;rangeMode=3;rangeBuffer='';rangeTyping=false;minInput.readOnly=true;maxInput.readOnly=true;minInput.classList.remove('range-active');maxInput.classList.remove('range-active');minInput.blur();maxInput.blur();rangeInfo.textContent=`範囲設定完了：${fmt(Number(minInput.value))} 〜 ${fmt(Number(maxInput.value))} ／ 0キーで適用`;rangeInfo.classList.remove('range-error');return true}if(e.key==='Escape'){e.preventDefault();cancelRange();return true}e.preventDefault();return true}\nrangeButton.onclick"""
+              s,n=re.subn(pattern,repl,s,flags=re.S)
+              if n!=1: raise SystemExit(f'index.html: rangeKey replacement count={n}')
+              s=s.replace("resetBtn.onclick=()=>{if(rangeMode)return;flash(resetBtn);shuffle();render()};","resetBtn.onclick=()=>{if(rangeMode===3){flash(resetBtn);if(applyRange())cancelRange();return}if(rangeMode)return;flash(resetBtn);shuffle();render()};",1)
+              s=s.replace("if(k==='0'){e.preventDefault();flash(resetBtn);resetNumbers();return}","if(k==='0'){e.preventDefault();flash(resetBtn);if(rangeMode===3){if(applyRange())cancelRange();return}if(rangeMode)return;resetNumbers();return}",1)
+              return s
+
+          def patch_mobile(s):
+              pattern = r"function finishRangeInput\(value,mode\)\{.*?\}\nfunction handleRangeKey"
+              repl = """function finishRangeInput(value,mode){let v=normalizeDigits(value).replace(/\\D/g,'');if(v==='')return false;let n=Number(v);if(!Number.isInteger(n)||n<0||n>9999){rangeInfo.textContent='0000〜9999で入力してください';rangeInfo.classList.add('range-error');return false}if(mode===1){minInput.value=n;rangeMode=2;rangeBuffer='';rangeTyping=false;setRangeInputFocus(2);rangeInfo.textContent='最大値を入力 → Enterで決定';return true}maxInput.value=n;rangeMode=3;rangeBuffer='';rangeTyping=false;minInput.readOnly=true;maxInput.readOnly=true;minInput.classList.remove('range-active');maxInput.classList.remove('range-active');minInput.blur();maxInput.blur();rangeInfo.textContent=`範囲設定完了：${fmt(Number(minInput.value))} 〜 ${fmt(Number(maxInput.value))} ／ 0キーで適用`;rangeInfo.classList.remove('range-error');return true}\nfunction handleRangeKey"""
+              s,n=re.subn(pattern,repl,s,flags=re.S)
+              if n!=1: raise SystemExit(f'mobile.html: finishRangeInput replacement count={n}')
+              s=s.replace("reset.onclick=()=>{if(rangeMode)return;flash(reset);resetNumbers()};","reset.onclick=()=>{if(rangeMode===3){if(applyRange())cancelRangeMode();return}if(rangeMode)return;flash(reset);resetNumbers()};",1)
+              s=s.replace("if(k==='0'){e.preventDefault();flash(reset);resetNumbers();return}","if(k==='0'){e.preventDefault();flash(reset);if(rangeMode===3){if(applyRange())cancelRangeMode();return}if(rangeMode)return;resetNumbers();return}",1)
+              return s
+
+          for name,fn in [('index.html',patch_index),('mobile.html',patch_mobile)]:
+              p=Path(name);s=p.read_text(encoding='utf-8');new=fn(s)
+              if new==s: raise SystemExit(f'{name}: no changes made')
+              p.write_text(new,encoding='utf-8')
           PY
       - name: Commit site files
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add mobile.html index.html
+          git add index.html mobile.html
           git diff --cached --quiet && exit 0
-          git commit -m "PC・タブレット版の履歴も全件表示に修正"
+          git commit -m "数字範囲選択を0キー適用方式に変更"
           git push
