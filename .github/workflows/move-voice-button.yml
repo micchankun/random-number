@@ -1,4 +1,4 @@
-name: Remove local Yukkuri voice
+name: Remove local Yukkuri voice and fix range focus
 
 on:
   push:
@@ -13,18 +13,31 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Remove local Yukkuri voice from site
+      - name: Remove local Yukkuri voice and fix range selection focus
         run: |
           python - <<'PY'
           from pathlib import Path
           import re
 
+          FOCUS_FIX = r'''// RANGE_BUTTON_FOCUS_FIX_V1
+          rangeButton.addEventListener('click',()=>{
+              setTimeout(()=>{
+                  if(rangeMode){
+                      minInput.focus();
+                      minInput.select();
+                  }
+              },0);
+          });
+          // RANGE_BUTTON_FOCUS_FIX_V1_END
+          '''
+
           def cleanup(path):
               p = Path(path)
               s = p.read_text(encoding='utf-8')
-              s2 = re.sub(r'// YUKKURI_LOCAL_VOICE_V1.*?// YUKKURI_LOCAL_VOICE_V1_END\s*', '', s, flags=re.S)
-              if s2 != s:
-                  p.write_text(s2, encoding='utf-8')
+              s = re.sub(r'// YUKKURI_LOCAL_VOICE_V1.*?// YUKKURI_LOCAL_VOICE_V1_END\s*', '', s, flags=re.S)
+              if 'RANGE_BUTTON_FOCUS_FIX_V1' not in s:
+                  s = s.replace('</script>', FOCUS_FIX + '\n</script>', 1)
+              p.write_text(s, encoding='utf-8')
 
           cleanup('index.html')
           cleanup('mobile.html')
@@ -35,5 +48,5 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html mobile.html
           if git diff --cached --quiet; then exit 0; fi
-          git commit -m "アプリからゆっくり表記を削除"
+          git commit -m "範囲選択ボタンを押したら入力欄を自動フォーカス"
           git push
