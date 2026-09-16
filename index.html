@@ -55,63 +55,14 @@ document.addEventListener('pointerdown',e=>{if(!rangeMode)return;if(e.target.clo
 function toggleHistory(){if(!historyPanel)return;let collapsed=historyPanel.classList.toggle('collapsed');historyArrow.textContent=collapsed?'▸':'▾';historyToggle.setAttribute('aria-expanded',String(!collapsed));}
 historyToggle?.addEventListener('click',toggleHistory);historyToggle?.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();toggleHistory()}});
 </script>
-<!-- MOBILE_RANGE_INPUT_HOTFIX_V1 -->
+<!-- MOBILE_TABLET_RANGE_INPUT_FIX_V2 -->
 <script>
 (()=>{
-  const inputs=[document.getElementById('minInput'),document.getElementById('maxInput')].filter(Boolean);
-  for(const input of inputs){
-    input.addEventListener('pointerdown',e=>{
-      e.stopImmediatePropagation();
-      requestAnimationFrame(()=>{
-        input.focus({preventScroll:true});
-        try{input.setSelectionRange(input.value.length,input.value.length)}catch(_){}
-      });
-    },true);
-    input.addEventListener('beforeinput',e=>{
-      if(e.inputType==='insertText'||e.inputType==='insertCompositionText'||e.inputType==='insertFromPaste'){
-        const data=(e.data??'').replace(/\D/g,'');
-        e.preventDefault();
-        e.stopImmediatePropagation();
-        if(!data)return;
-        const old=input.value.replace(/\D/g,'');
-        const start=input.selectionStart??old.length;
-        const end=input.selectionEnd??old.length;
-        input.value=(old.slice(0,start)+data+old.slice(end)).slice(0,4);
-        input.dispatchEvent(new Event('input',{bubbles:true}));
-        return;
-      }
-      if(e.inputType==='deleteContentBackward'||e.inputType==='deleteContentForward'){
-        e.preventDefault();
-        e.stopImmediatePropagation();
-        const old=input.value;
-        if(e.inputType==='deleteContentBackward'){
-          const pos=input.selectionStart??old.length;
-          if(pos>0) input.value=old.slice(0,pos-1)+old.slice(input.selectionEnd??pos);
-        }else{
-          const pos=input.selectionStart??old.length;
-          input.value=old.slice(0,pos)+old.slice(input.selectionEnd??pos+1);
-        }
-        input.dispatchEvent(new Event('input',{bubbles:true}));
-      }
-    },true);
-    input.addEventListener('keydown',e=>{
-      if(/^\d$/.test(e.key)||e.key==='Backspace'||e.key==='Delete'){
-        e.stopImmediatePropagation();
-      }
-    },true);
-  }
-})();
-</script>
-<!-- MOBILE_RANGE_INPUT_FINAL_FIX -->
-<script>
-(()=>{
-  const isRangeInput=t=>t===minInput||t===maxInput;
-  window.addEventListener('pointerdown',e=>{
-    if(!isRangeInput(e.target))return;
-    e.stopPropagation();
-    const input=e.target;
+  const mobileTablet=window.matchMedia('(max-width: 900px)');
+  if(!mobileTablet.matches)return;
+  const inputs=[minInput,maxInput].filter(Boolean);
+  const focusForTouch=(input,mode)=>{
     if(rangeMode===0)startRangeMode();
-    const mode=input===minInput?1:2;
     rangeMode=mode;
     rangeBuffer='';
     rangeTyping=false;
@@ -121,39 +72,72 @@ historyToggle?.addEventListener('click',toggleHistory);historyToggle?.addEventLi
     maxInput.classList.toggle('range-active',mode===2);
     rangeInfo.classList.remove('range-error');
     rangeInfo.textContent=mode===1?'最小値を入力 → Enterで決定':'最大値を入力 → Enterで決定';
+    input.setAttribute('inputmode','numeric');
     input.focus({preventScroll:true});
-    try{input.setSelectionRange(input.value.length,input.value.length)}catch(_){ }
+    input.select();
+  };
+  rangeButton.addEventListener('pointerdown',e=>{
+    e.stopImmediatePropagation();
+    if(rangeMode!==0)return;
+    flash(rangeButton);
+    startRangeMode();
+    minInput.readOnly=false;
+    minInput.classList.add('range-active');
+    minInput.focus({preventScroll:true});
+    minInput.select();
   },true);
-  window.addEventListener('keydown',e=>{
-    if(!isRangeInput(e.target))return;
-    const k=e.key;
-    const digit=normalizeDigits(k);
-    if(/^[0-9]$/.test(digit)){
-      e.preventDefault();
+  inputs.forEach(input=>{
+    input.addEventListener('pointerdown',e=>{
       e.stopImmediatePropagation();
-      const input=rangeMode===1?minInput:maxInput;
-      if(!rangeTyping){rangeBuffer='';rangeTyping=true;input.value=''}
-      if(rangeBuffer.length<4){rangeBuffer+=digit;input.value=rangeBuffer}
-      return;
-    }
-    if(k==='Backspace'||k==='Delete'){
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      const input=rangeMode===1?minInput:maxInput;
-      if(rangeTyping){rangeBuffer=rangeBuffer.slice(0,-1);input.value=rangeBuffer;if(rangeBuffer==='')rangeTyping=false}
-      return;
-    }
-    if(k==='Enter'){
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      const input=rangeMode===1?minInput:maxInput;
-      const value=rangeTyping?rangeBuffer:input.value;
-      finishRangeInput(value,rangeMode);
-      return;
-    }
-  },true);
-  window.addEventListener('beforeinput',e=>{
-    if(isRangeInput(e.target))e.stopPropagation();
+      focusForTouch(input,input===minInput?1:2);
+    },true);
+    input.addEventListener('keydown',e=>{
+      const digit=normalizeDigits(e.key);
+      if(/^[0-9]$/.test(digit)){
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        const mode=input===minInput?1:2;
+        if(rangeMode!==mode)focusForTouch(input,mode);
+        if(!rangeTyping){rangeBuffer='';rangeTyping=true;input.value=''}
+        if(rangeBuffer.length<4){rangeBuffer+=digit;input.value=rangeBuffer}
+        return;
+      }
+      if(e.key==='Backspace'||e.key==='Delete'){
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        if(rangeMode!== (input===minInput?1:2))return;
+        if(rangeTyping){rangeBuffer=rangeBuffer.slice(0,-1);input.value=rangeBuffer;if(rangeBuffer==='')rangeTyping=false}
+        return;
+      }
+      if(e.key==='Enter'){
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        const mode=input===minInput?1:2;
+        const value=rangeTyping?rangeBuffer:input.value;
+        finishRangeInput(value,mode);
+        return;
+      }
+    },true);
+    input.addEventListener('beforeinput',e=>{
+      if(e.inputType==='insertText'||e.inputType==='insertCompositionText'||e.inputType==='insertFromPaste'){
+        const data=normalizeDigits(e.data??'').replace(/\D/g,'');
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        if(!data)return;
+        if(rangeMode!==(input===minInput?1:2))focusForTouch(input,input===minInput?1:2);
+        if(!rangeTyping){rangeBuffer='';rangeTyping=true;input.value=''}
+        if(rangeBuffer.length<4){rangeBuffer=(rangeBuffer+data).slice(0,4);input.value=rangeBuffer}
+        input.dispatchEvent(new Event('input',{bubbles:true}));
+        return;
+      }
+    },true);
+  });
+  document.addEventListener('pointerdown',e=>{
+    if(!rangeMode)return;
+    if(e.target.closest('.range-controls,button,select'))return;
+    const input=rangeMode===1?minInput:maxInput;
+    const value=rangeTyping?rangeBuffer:input.value;
+    finishRangeInput(value,rangeMode);
   },true);
 })();
 </script>
