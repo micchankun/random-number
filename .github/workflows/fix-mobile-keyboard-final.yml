@@ -1,0 +1,103 @@
+name: Fix mobile keyboard final
+
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-mobile-keyboard-final.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Replace mobile range input handler
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+          start=s.find('<!-- MOBILE_TABLET_RANGE_INPUT_FIX_V2 -->')
+          if start<0:
+              raise SystemExit('mobile handler marker not found')
+          end=s.find('</body>', start)
+          if end<0:
+              raise SystemExit('body end not found')
+          block='''<!-- MOBILE_RANGE_INPUT_NATIVE_FIX_V3 -->
+          <script>
+          (()=>{
+            const mobile=window.matchMedia('(max-width: 600px)');
+            if(!mobile.matches)return;
+            const inputs=[minInput,maxInput];
+            const activate=(input)=>{
+              const mode=input===minInput?1:2;
+              if(rangeMode===0)startRangeMode();
+              rangeMode=mode;
+              rangeBuffer='';
+              rangeTyping=false;
+              minInput.readOnly=mode!==1;
+              maxInput.readOnly=mode!==2;
+              minInput.classList.toggle('range-active',mode===1);
+              maxInput.classList.toggle('range-active',mode===2);
+              rangeInfo.classList.remove('range-error');
+              rangeInfo.textContent=mode===1?'最小値を入力 → Enterで決定':'最大値を入力 → Enterで決定';
+              input.readOnly=false;
+              input.setAttribute('inputmode','numeric');
+              input.focus({preventScroll:true});
+              try{input.select()}catch(_){}
+            };
+            const launchFromTouch=(e)=>{
+              const target=e.target;
+              const button=target.closest?.('#rangeButton');
+              const input=target.closest?.('#minInput,#maxInput');
+              if(!button&&!input)return;
+              e.stopImmediatePropagation();
+              if(button){
+                if(rangeMode===0)startRangeMode();
+                minInput.readOnly=false;
+                maxInput.readOnly=true;
+                minInput.classList.add('range-active');
+                maxInput.classList.remove('range-active');
+                rangeBuffer='';
+                rangeTyping=false;
+                rangeInfo.classList.remove('range-error');
+                rangeInfo.textContent='最小値を入力 → Enterで決定';
+                minInput.focus({preventScroll:true});
+                try{minInput.select()}catch(_){}
+              }else{
+                activate(input);
+              }
+            };
+            rangeButton.addEventListener('touchend',launchFromTouch,{capture:true,passive:false});
+            minInput.addEventListener('touchend',launchFromTouch,{capture:true,passive:false});
+            maxInput.addEventListener('touchend',launchFromTouch,{capture:true,passive:false});
+            rangeButton.addEventListener('pointerup',launchFromTouch,{capture:true,passive:false});
+            minInput.addEventListener('pointerup',launchFromTouch,{capture:true,passive:false});
+            maxInput.addEventListener('pointerup',launchFromTouch,{capture:true,passive:false});
+            window.addEventListener('keydown',e=>{
+              if(e.target!==minInput&&e.target!==maxInput)return;
+              if(/^\\d$/.test(normalizeDigits(e.key))||e.key==='Backspace'||e.key==='Delete'||e.key==='Enter')e.stopImmediatePropagation();
+            },true);
+            inputs.forEach(input=>{
+              input.addEventListener('input',()=>{
+                if(!rangeMode||input.readOnly)return;
+                const v=normalizeDigits(input.value).replace(/\\D/g,'').slice(0,4);
+                input.value=v;
+                rangeBuffer=v;
+                rangeTyping=true;
+              });
+            });
+          })();
+          </script>
+          '''
+          s=s[:start]+block+'\n'+s[end:]
+          p.write_text(s,encoding='utf-8')
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git diff --cached --quiet || git commit -m "Fix native mobile range keyboard input"
+          git push
