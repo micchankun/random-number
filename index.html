@@ -200,5 +200,51 @@ historyToggle?.addEventListener('click',toggleHistory);historyToggle?.addEventLi
 })();
 </script>
 
+<!-- MOBILE_KEYBOARD_TOUCH_FIX_V2 -->
+<script>
+(()=>{
+  const mobile=window.matchMedia('(max-width: 600px)');
+  if(!mobile.matches)return;
+  const focusInput=(input)=>{
+    if(!input)return;
+    const mode=input===minInput?1:2;
+    if(rangeMode===0)startRangeMode();
+    rangeMode=mode;
+    rangeBuffer='';
+    rangeTyping=false;
+    minInput.readOnly=mode!==1;
+    maxInput.readOnly=mode!==2;
+    minInput.classList.toggle('range-active',mode===1);
+    maxInput.classList.toggle('range-active',mode===2);
+    rangeInfo.classList.remove('range-error');
+    rangeInfo.textContent=mode===1?'最小値を入力 → Enterで決定':'最大値を入力 → Enterで決定';
+    input.readOnly=false;
+    input.setAttribute('inputmode','numeric');
+    input.focus({preventScroll:true});
+    try{input.setSelectionRange(input.value.length,input.value.length)}catch(_){}
+  };
+  const onTouchEnd=(e)=>{
+    const t=e.target;
+    if(t===rangeButton){
+      e.stopImmediatePropagation();
+      startRangeMode();
+      minInput.readOnly=false;
+      minInput.classList.add('range-active');
+      minInput.setAttribute('inputmode','numeric');
+      minInput.focus({preventScroll:true});
+      try{minInput.setSelectionRange(minInput.value.length,minInput.value.length)}catch(_){}
+      return;
+    }
+    if(t===minInput||t===maxInput){
+      e.stopImmediatePropagation();
+      focusInput(t);
+    }
+  };
+  rangeButton.addEventListener('touchend',onTouchEnd,{capture:true,passive:false});
+  minInput.addEventListener('touchend',onTouchEnd,{capture:true,passive:false});
+  maxInput.addEventListener('touchend',onTouchEnd,{capture:true,passive:false});
+})();
+</script>
+
 </body>
 </html>
