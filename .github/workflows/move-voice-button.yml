@@ -42,11 +42,24 @@ jobs:
           s=s.replace('</script>',marker+'</script>',1)
           p.write_text(s,encoding='utf-8')
           PY
+      - name: Patch PC and tablet site
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+          old='for(let i=Math.max(0,currentIndex-50);i<currentIndex;i++)'
+          new='for(let i=0;i<currentIndex;i++)'
+          if old not in s:
+              raise SystemExit('PC/tablet history limit pattern not found')
+          s=s.replace(old,new,1)
+          p.write_text(s,encoding='utf-8')
+          PY
       - name: Commit site files
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add mobile.html
+          git add mobile.html index.html
           git diff --cached --quiet && exit 0
-          git commit -m "スマホ版の履歴を全件表示に修正"
+          git commit -m "PC・タブレット版の履歴も全件表示に修正"
           git push
