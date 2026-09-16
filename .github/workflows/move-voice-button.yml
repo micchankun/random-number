@@ -20,9 +20,7 @@ jobs:
           from pathlib import Path
           p=Path('mobile.html')
           s=p.read_text(encoding='utf-8')
-          marker_start='// RANGE_INPUT_TAP_KEYBOARD_V7'
-          marker_end='// RANGE_INPUT_TAP_KEYBOARD_V7_END'
-          for old in ('V4','V5','V6'):
+          for old in ('V4','V5','V6','V7','V8'):
               a_marker=f'// RANGE_INPUT_TAP_KEYBOARD_{old}'
               b_marker=f'// RANGE_INPUT_TAP_KEYBOARD_{old}_END'
               while a_marker in s:
@@ -31,13 +29,11 @@ jobs:
                   if b < 0: raise SystemExit('marker end not found')
                   b=s.find('\n',b)
                   s=s[:a]+(s[b+1:] if b>=0 else '')
-          while marker_start in s:
-              a=s.find(marker_start)
-              b=s.find(marker_end,a)
-              if b < 0: raise SystemExit('marker end not found')
-              b=s.find('\n',b)
-              s=s[:a]+(s[b+1:] if b>=0 else '')
+          marker_start='// RANGE_INPUT_TAP_KEYBOARD_V8'
+          marker_end='// RANGE_INPUT_TAP_KEYBOARD_V8_END'
           marker=f'''{marker_start}
+          document.addEventListener('keydown',e=>{{if(!rangeMode)return;if(e.target!==minInput&&e.target!==maxInput)return;let digit=normalize(e.key);if(/^[0-9]$/.test(digit)||e.key==='Backspace')e.stopImmediatePropagation()}},true);
+          [minInput,maxInput].forEach(input=>input.addEventListener('input',e=>{{if(!rangeMode||input.readOnly)return;let v=normalize(input.value).replace(/\\D/g,'').slice(0,4);input.value=v;rangeBuffer=v;rangeTyping=v!==''}}));
           [minInput,maxInput].forEach(input=>input.addEventListener('pointerdown',e=>{{e.stopPropagation();let mode=input===minInput?1:2;if(rangeMode===0){{stopAuto();rangeMode=mode;rangeBuffer='';rangeTyping=false;minInput.value=minNumber;maxInput.value=maxNumber;minInput.readOnly=mode!==1;maxInput.readOnly=mode!==2}}else{{rangeMode=mode;rangeBuffer='';rangeTyping=false;minInput.readOnly=mode!==1;maxInput.readOnly=mode!==2}}minInput.classList.toggle('range-active',mode===1);maxInput.classList.toggle('range-active',mode===2);rangeInfo.classList.remove('error');rangeInfo.textContent=mode===1?'最小値を入力して決定 → 最大値':'最大値を入力して決定';input.setAttribute('inputmode','numeric');input.focus();input.select()}}));
           rangeButton.onclick=()=>{{if(rangeMode)return;flash(rangeButton);startRange();minInput.readOnly=false;maxInput.readOnly=true;minInput.classList.add('range-active');maxInput.classList.remove('range-active');rangeInfo.textContent='最小値を入力して決定 → 最大値';minInput.setAttribute('inputmode','numeric');minInput.focus();minInput.select()}};
           {marker_end}
@@ -51,5 +47,5 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add mobile.html
           git diff --cached --quiet && exit 0
-          git commit -m "スマホ版の範囲入力キーボード表示を修正"
+          git commit -m "スマホ版の数字二重入力を修正"
           git push
