@@ -43,7 +43,26 @@ nextBtn.onclick=()=>{if(rangeMode)return;flash(nextBtn);nextNumber()};prevBtn.on
 document.addEventListener('keydown',e=>{if(rangeMode){let input=rangeMode===1?minInput:maxInput;if(e.target!==input)return;return}if(e.target.matches('input,select'))return;let k=e.key;if(k==='b'||k==='B'){e.preventDefault();flash(voiceToggle);setVoiceEnabled(!voiceEnabled);if(voiceEnabled)speakNumber();restartTimer();return}if(k==='v'||k==='V'){e.preventDefault();flash(voiceSelect);cycleVoice();restartTimer();return}if(k==='/'||k==='?'||k==='？'||k==='・'||e.code==='Slash'){e.preventDefault();flash(rangeButton);startRangeMode();return}if(k==='Enter'||k==='ArrowRight'||k==='ArrowUp'||/^[lLdDwW]$/.test(k)){e.preventDefault();flash(nextBtn);nextNumber();return}if(k==='Backspace'||k==='ArrowLeft'||k==='ArrowDown'||/^[aAsSjJ]$/.test(k)){e.preventDefault();flash(prevBtn);previousNumber();return}if(k===' '||/^[kKqQ]$/.test(k)){e.preventDefault();flash(autoBtn);toggleAuto();return}if(k==='1'){e.preventDefault();flash(firstBtn);goFirst();return}if(k==='9'){e.preventDefault();flash(lastBtn);goLast();return}if(k==='0'){e.preventDefault();flash(resetBtn);resetNumbers();return}if(k==='<'||k==='＜'||e.code==='Comma'){e.preventDefault();flash(decBtn);setIntervalIndex(intervalIndex-1);return}if(k==='>'||k==='＞'||e.code==='Period'){e.preventDefault();flash(incBtn);setIntervalIndex(intervalIndex+1);return}});
 rangeButton.title='数字範囲選択を開始';createRandomNumbers();displayNumber();
 // RANGE_BLANK_TAP_CONFIRM_V1
-document.addEventListener('pointerdown',e=>{if(!rangeMode)return;if(e.target.closest('input,button,select'))return;const input=rangeMode===1?minInput:maxInput;finishRangeInput(input.value,rangeMode);});
+(()=>{
+  let blankTapHandled=false;
+  const confirmBlank=()=>{
+    if(!rangeMode)return;
+    const input=rangeMode===1?minInput:maxInput;
+    finishRangeInput(input.value,rangeMode);
+  };
+  document.addEventListener('pointerup',e=>{
+    if(e.target.closest('input,button,select')){blankTapHandled=false;return;}
+    if(!rangeMode||blankTapHandled)return;
+    blankTapHandled=true;
+    confirmBlank();
+  },{capture:true});
+  document.addEventListener('click',e=>{
+    if(e.target.closest('input,button,select')){blankTapHandled=false;return;}
+    if(!rangeMode||blankTapHandled)return;
+    blankTapHandled=true;
+    confirmBlank();
+  },{capture:true});
+})();
 // RANGE_INPUT_DEVICE_FIX_V6
 (()=>{
   const setInputMode=input=>{
