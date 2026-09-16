@@ -19,30 +19,58 @@ jobs:
           python - <<'PY'
           from pathlib import Path
 
-          INDEX_RANGE = """function rangeKey(e){if(!rangeMode)return false;let digit=normalize(e.key);if(rangeMode===3){e.preventDefault();return true}if(/^[0-9]$/.test(digit)){e.preventDefault();let input=rangeMode===1?minInput:maxInput;if(!rangeTyping){rangeBuffer='';rangeTyping=true;input.value=''}if(rangeBuffer.length<4){rangeBuffer+=digit;input.value=rangeBuffer}return true}if(e.key==='Backspace'){e.preventDefault();if(rangeTyping){rangeBuffer=rangeBuffer.slice(0,-1);(rangeMode===1?minInput:maxInput).value=rangeBuffer}return true}if(e.key==='Enter'){e.preventDefault();let input=rangeMode===1?minInput:maxInput;let value=rangeTyping?rangeBuffer:input.value;if(rangeMode===1){let n=Number(normalize(value));if(!Number.isInteger(n)||n<0||n>9999){rangeInfo.textContent='最小値は0000〜9999';rangeInfo.classList.add('range-error');return true}minInput.value=n;rangeMode=2;rangeBuffer='';rangeTyping=false;setFocus(2);rangeInfo.textContent='最大値を入力して決定';return true}let n=Number(normalize(value));if(!Number.isInteger(n)||n<0||n>9999){rangeInfo.textContent='最大値は0000〜9999';rangeInfo.classList.add('range-error');return true}maxInput.value=n;rangeMode=3;rangeBuffer='';rangeTyping=false;minInput.readOnly=true;maxInput.readOnly=true;minInput.classList.remove('range-active');maxInput.classList.remove('range-active');minInput.blur();maxInput.blur();rangeInfo.textContent=`範囲設定完了：${fmt(Number(minInput.value))} 〜 ${fmt(Number(maxInput.value))} ／ 0キーで適用`;rangeInfo.classList.remove('range-error');return true}if(e.key==='Escape'){e.preventDefault();cancelRange();return true}e.preventDefault();return true}
-"""
+          patch = r'''// RANGE_DEFERRED_APPLY_V1
+          function finishPendingRange(){
+            if(rangeMode!==3)return false;
+            if(!applyRange())return false;
+            if(typeof cancelRange==='function')cancelRange();
+            else if(typeof cancelRangeMode==='function')cancelRangeMode();
+            return true;
+          }
+          function markPendingRange(){
+            rangeMode=3;rangeBuffer='';rangeTyping=false;
+            minInput.readOnly=true;maxInput.readOnly=true;
+            minInput.classList.remove('range-active');maxInput.classList.remove('range-active');
+            minInput.blur();maxInput.blur();
+            let mn=Number(normalizeDigits?normalizeDigits(minInput.value):minInput.value);
+            let mx=Number(normalizeDigits?normalizeDigits(maxInput.value):maxInput.value);
+            rangeInfo.textContent=`範囲設定完了：${fmt(mn)} 〜 ${fmt(mx)} ／ 0キーで適用`;
+            rangeInfo.classList.remove('range-error');
+          }
+          document.addEventListener('keydown',e=>{
+            if(e.key==='0'&&rangeMode===3){e.preventDefault();e.stopImmediatePropagation();finishPendingRange();return}
+            if(e.key==='Enter'&&rangeMode===2){
+              let input=rangeMode===1?minInput:maxInput;
+              let value=rangeTyping?rangeBuffer:input.value;
+              let n=Number((typeof normalizeDigits==='function'?normalizeDigits(value):value));
+              if(!Number.isInteger(n)||n<0||n>9999)return;
+              e.preventDefault();e.stopImmediatePropagation();
+              maxInput.value=n;markPendingRange();return;
+            }
+          },true);
+          document.addEventListener('pointerdown',e=>{
+            if(rangeMode!==2)return;
+            if(e.target.closest('input,button,select'))return;
+            document.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',code:'Enter',bubbles:true}));
+          },true);
+          [rangeButton,resetBtn||reset].filter(Boolean).forEach(b=>b.addEventListener('click',()=>{
+            if(rangeMode===3){setTimeout(finishPendingRange,0)}
+          }));
+          // RANGE_DEFERRED_APPLY_V1_END
+          '''
 
-          MOBILE_RANGE = """function finishRangeInput(value,mode){let v=normalizeDigits(value).replace(/\D/g,'');if(v==='')return false;let n=Number(v);if(!Number.isInteger(n)||n<0||n>9999){rangeInfo.textContent='0000〜9999で入力してください';rangeInfo.classList.add('range-error');return false}if(mode===1){minInput.value=n;rangeMode=2;rangeBuffer='';rangeTyping=false;setRangeInputFocus(2);rangeInfo.textContent='最大値を入力 → Enterで決定';return true}maxInput.value=n;rangeMode=3;rangeBuffer='';rangeTyping=false;minInput.readOnly=true;maxInput.readOnly=true;minInput.classList.remove('range-active');maxInput.classList.remove('range-active');minInput.blur();maxInput.blur();rangeInfo.textContent=`範囲設定完了：${fmt(Number(minInput.value))} 〜 ${fmt(Number(maxInput.value))} ／ 0キーで適用`;rangeInfo.classList.remove('range-error');return true}
-"""
-
-          def between(s,start_marker,end_marker,replacement):
-              a=s.find(start_marker)
-              if a<0: raise SystemExit(f'marker not found: {start_marker}')
-              b=s.find(end_marker,a)
-              if b<0: raise SystemExit(f'end marker not found: {end_marker}')
-              return s[:a]+replacement+s[b:]
-
-          p=Path('index.html');s=p.read_text(encoding='utf-8')
-          s=between(s,'function rangeKey(e){','rangeButton.onclick',INDEX_RANGE)
-          s=s.replace("resetBtn.onclick=()=>{if(rangeMode)return;flash(resetBtn);shuffle();render()};","resetBtn.onclick=()=>{if(rangeMode===3){flash(resetBtn);if(applyRange())cancelRange();return}if(rangeMode)return;flash(resetBtn);shuffle();render()};",1)
-          s=s.replace("if(k==='0'){e.preventDefault();flash(resetBtn);resetNumbers();return}","if(k==='0'){e.preventDefault();flash(resetBtn);if(rangeMode===3){if(applyRange())cancelRange();return}if(rangeMode)return;resetNumbers();return}",1)
-          p.write_text(s,encoding='utf-8')
-
-          p=Path('mobile.html');s=p.read_text(encoding='utf-8')
-          s=between(s,'function finishRangeInput(value,mode){','function handleRangeKey',MOBILE_RANGE)
-          s=s.replace("reset.onclick=()=>{if(rangeMode)return;flash(reset);resetNumbers()};","reset.onclick=()=>{if(rangeMode===3){if(applyRange())cancelRangeMode();return}if(rangeMode)return;flash(reset);resetNumbers()};",1)
-          s=s.replace("if(k==='0'){e.preventDefault();flash(reset);resetNumbers();return}","if(k==='0'){e.preventDefault();flash(reset);if(rangeMode===3){if(applyRange())cancelRangeMode();return}if(rangeMode)return;resetNumbers();return}",1)
-          p.write_text(s,encoding='utf-8')
+          for name in ('index.html','mobile.html'):
+              p=Path(name);s=p.read_text(encoding='utf-8')
+              start='// RANGE_DEFERRED_APPLY_V1'
+              end='// RANGE_DEFERRED_APPLY_V1_END'
+              if start in s:
+                  a=s.find(start);b=s.find(end,a)
+                  b=s.find('\n',b)
+                  s=s[:a]+(s[b+1:] if b>=0 else '')
+              pos=s.rfind('</script>')
+              if pos<0: raise SystemExit(f'{name}: script end not found')
+              s=s[:pos]+patch+s[pos:]
+              p.write_text(s,encoding='utf-8')
           PY
       - name: Commit site files
         run: |
