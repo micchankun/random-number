@@ -68,17 +68,16 @@ function markPendingRange(){
   minInput.readOnly=true;maxInput.readOnly=true;
   minInput.classList.remove('range-active');maxInput.classList.remove('range-active');
   minInput.blur();maxInput.blur();
-  let mn=Number(normalizeDigits?normalizeDigits(minInput.value):minInput.value);
-  let mx=Number(normalizeDigits?normalizeDigits(maxInput.value):maxInput.value);
+  let mn=Number(normalizeDigits(minInput.value));
+  let mx=Number(normalizeDigits(maxInput.value));
   rangeInfo.textContent=`範囲設定完了：${fmt(mn)} 〜 ${fmt(mx)} ／ 0キーで適用`;
   rangeInfo.classList.remove('range-error');
 }
 document.addEventListener('keydown',e=>{
   if(e.key==='0'&&rangeMode===3){e.preventDefault();e.stopImmediatePropagation();finishPendingRange();return}
   if(e.key==='Enter'&&rangeMode===2){
-    let input=rangeMode===1?minInput:maxInput;
-    let value=rangeTyping?rangeBuffer:input.value;
-    let n=Number((typeof normalizeDigits==='function'?normalizeDigits(value):value));
+    let value=rangeTyping?rangeBuffer:(rangeMode===1?minInput:maxInput).value;
+    let n=Number(normalizeDigits(value));
     if(!Number.isInteger(n)||n<0||n>9999)return;
     e.preventDefault();e.stopImmediatePropagation();
     maxInput.value=n;markPendingRange();return;
@@ -89,7 +88,8 @@ document.addEventListener('pointerdown',e=>{
   if(e.target.closest('input,button,select'))return;
   document.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',code:'Enter',bubbles:true}));
 },true);
-[rangeButton,resetBtn||reset].filter(Boolean).forEach(b=>b.addEventListener('click',()=>{
+const resetControl = typeof resetBtn !== 'undefined' ? resetBtn : reset;
+[rangeButton,resetControl].filter(Boolean).forEach(b=>b.addEventListener('click',()=>{
   if(rangeMode===3){setTimeout(finishPendingRange,0)}
 }));
 // RANGE_DEFERRED_APPLY_V1_END
