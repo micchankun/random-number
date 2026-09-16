@@ -44,6 +44,17 @@ voiceToggle.onclick=()=>{if(rangeMode)return;flash(voiceToggle);setVoiceEnabled(
 nextBtn.onclick=()=>{if(rangeMode)return;flash(nextBtn);nextNumber()};prevBtn.onclick=()=>{if(rangeMode)return;flash(prevBtn);previousNumber()};autoBtn.onclick=()=>{if(rangeMode)return;flash(autoBtn);toggleAuto()};firstBtn.onclick=()=>{if(rangeMode)return;flash(firstBtn);goFirst()};lastBtn.onclick=()=>{if(rangeMode)return;flash(lastBtn);goLast()};resetBtn.onclick=()=>{if(rangeMode)return;flash(resetBtn);resetNumbers()};rangeButton.onclick=()=>{if(rangeMode)return;flash(rangeButton);startRangeMode()};decBtn.onclick=()=>{if(rangeMode)return;flash(decBtn);setIntervalIndex(intervalIndex-1)};incBtn.onclick=()=>{if(rangeMode)return;flash(incBtn);setIntervalIndex(intervalIndex+1)};intBtn.onclick=e=>{e.stopPropagation();if(rangeMode)return;flash(intBtn);menu.classList.toggle('open')};document.addEventListener('click',e=>{if(!e.target.closest('.interval-controls'))menu.classList.remove('open')});
 document.addEventListener('keydown',e=>{if(handleRangeKey(e))return;if(e.target.matches('input,select'))return;let k=e.key;if(k==='b'||k==='B'){e.preventDefault();flash(voiceToggle);setVoiceEnabled(!voiceEnabled);if(voiceEnabled)speakNumber();restartTimer();return}if(k==='v'||k==='V'){e.preventDefault();flash(voiceSelect);cycleVoice();restartTimer();return}if(k==='/'||k==='?'||k==='？'||k==='・'||e.code==='Slash'){e.preventDefault();flash(rangeButton);startRangeMode();return}if(k==='Enter'||k==='ArrowRight'||k==='ArrowUp'||/^[lLdDwW]$/.test(k)){e.preventDefault();flash(nextBtn);nextNumber();return}if(k==='Backspace'||k==='ArrowLeft'||k==='ArrowDown'||/^[aAsSjJ]$/.test(k)){e.preventDefault();flash(prevBtn);previousNumber();return}if(k===' '||/^[kKqQ]$/.test(k)){e.preventDefault();flash(autoBtn);toggleAuto();return}if(k==='1'){e.preventDefault();flash(firstBtn);goFirst();return}if(k==='9'){e.preventDefault();flash(lastBtn);goLast();return}if(k==='0'){e.preventDefault();flash(resetBtn);resetNumbers();return}if(k==='<'||k==='＜'||e.code==='Comma'){e.preventDefault();flash(decBtn);setIntervalIndex(intervalIndex-1);return}if(k==='>'||k==='＞'||e.code==='Period'){e.preventDefault();flash(incBtn);setIntervalIndex(intervalIndex+1);return}});
 rangeButton.title='数字範囲選択を開始';createRandomNumbers();displayNumber();
+// RANGE_BUTTON_FOCUS_FIX_V1
+rangeButton.addEventListener('click',()=>{
+    setTimeout(()=>{
+        if(rangeMode){
+            minInput.focus();
+            minInput.select();
+        }
+    },0);
+});
+// RANGE_BUTTON_FOCUS_FIX_V1_END
+
 </script>
 </body>
 </html>

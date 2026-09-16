@@ -43,6 +43,17 @@ function updateInterval(){intervalButton.textContent=INTERVALS[intervalIndex][0]
 [minInput,maxInput].forEach(input=>input.addEventListener('input',()=>{if(!rangeMode||input.readOnly)return;let v=normalize(input.value).replace(/\D/g,'').slice(0,4);input.value=v;rangeBuffer=v;rangeTyping=true}));document.addEventListener('keydown',e=>{if(rangeMode){rangeKey(e);return}if(e.target.matches('input,select'))return;let k=e.key;if(k==='b'||k==='B'){e.preventDefault();flash(voiceToggle);setVoiceEnabled(!voiceEnabled);if(voiceEnabled)speakNumber();restart();return}if(k==='v'||k==='V'){e.preventDefault();cycleVoice();restart();return}});
 voiceToggle.onclick=()=>{if(rangeMode)return;flash(voiceToggle);setVoiceEnabled(!voiceEnabled);if(voiceEnabled)speakNumber();restart()};voiceSelect.onchange=()=>{let i=Number(voiceSelect.value);selectedVoice=availableVoices[i]||null;if(selectedVoice)localStorage.setItem('randomNumberVoice',selectedVoice.voiceURI);if(voiceEnabled)speakNumber();restart()};if('speechSynthesis'in window){window.speechSynthesis.addEventListener('voiceschanged',loadVoices);loadVoices()}
 shuffle();updateInterval();render();
+// RANGE_BUTTON_FOCUS_FIX_V1
+rangeButton.addEventListener('click',()=>{
+    setTimeout(()=>{
+        if(rangeMode){
+            minInput.focus();
+            minInput.select();
+        }
+    },0);
+});
+// RANGE_BUTTON_FOCUS_FIX_V1_END
+
 </script>
 </body>
 </html>
