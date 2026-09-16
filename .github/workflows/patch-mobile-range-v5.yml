@@ -2,7 +2,8 @@ name: Patch mobile range input v5
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
 
 permissions:
   contents: write
@@ -11,86 +12,74 @@ jobs:
   patch:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
       - name: Patch index.html
-        shell: bash
         run: |
-          python3 <<'PY'
+          python3 - <<'PY'
           from pathlib import Path
           p = Path('index.html')
           s = p.read_text(encoding='utf-8')
-
-          marker_start = '// MOBILE_NATIVE_INPUT_V4'
-          marker_end = '// HISTORY_PANEL_TOGGLE_V1'
-          a = s.find(marker_start)
-          b = s.find(marker_end, a)
-          if a < 0 or b < 0:
-              raise SystemExit('mobile marker not found')
-
-          patch = r'''// MOBILE_NATIVE_INPUT_V5
-  (()=>{
-    const mobile=window.matchMedia('(max-width: 600px)');
-    if(!mobile.matches)return;
-    const state=new WeakMap();
-    const setInputMode=(input)=>{
-      const mode=input===minInput?1:2;
-      if(rangeMode===0){
-        if(autoRunning)stopAuto();
-        rangeMode=mode;
-        rangeBuffer='';
-        rangeTyping=false;
-        pendingRangeApply=false;
-        minInput.value=minNumber;
-        maxInput.value=maxNumber;
-      }else{
-        rangeMode=mode;
-        rangeBuffer='';
-        rangeTyping=false;
-      }
-      minInput.readOnly=mode!==1;
-      maxInput.readOnly=mode!==2;
-      minInput.classList.toggle('range-active',mode===1);
-      maxInput.classList.toggle('range-active',mode===2);
-      rangeInfo.classList.remove('range-error');
-      rangeInfo.textContent=mode===1?'最小値を入力 → Enterで決定':'最大値を入力 → Enterで決定';
-      state.set(input,true);
-    };
-    [minInput,maxInput].forEach(input=>{
-      input.addEventListener('pointerdown',()=>setInputMode(input),{capture:true});
-      input.addEventListener('input',e=>{
-        if(!rangeMode||input.readOnly)return;
-        const replacing=state.get(input)===true;
-        const raw=normalizeDigits(input.value).replace(/\D/g,'');
-        if(replacing){
-          const data=normalizeDigits(e.data||'').replace(/\D/g,'');
-          input.value=(data||raw).slice(0,4);
-          state.set(input,false);
-        }else{
-          input.value=raw.slice(0,4);
-        }
-        rangeBuffer=input.value;
-        rangeTyping=true;
-      },{capture:false});
-      input.addEventListener('keydown',e=>{
-        if(e.key==='Enter'){
-          e.preventDefault();
-          e.stopImmediatePropagation();
-          finishRangeInput(input.value,input===minInput?1:2);
-        }else if(e.key==='Escape'){
-          e.preventDefault();
-          e.stopImmediatePropagation();
-          cancelRangeMode();
-        }
-      });
-    });
-  })();
-'''
-          s = s[:a] + patch + s[b:]
+          start = s.find('// MOBILE_NATIVE_INPUT_V4')
+          end = s.find('// HISTORY_PANEL_TOGGLE_V1', start)
+          if start < 0 or end < 0:
+              raise SystemExit('mobile block markers not found')
+          patch = """// MOBILE_NATIVE_INPUT_V5
+          (()=>{
+            const mobile=window.matchMedia('(max-width: 600px)');
+            if(!mobile.matches)return;
+            const firstInput=new WeakMap();
+            const setInputMode=input=>{
+              const mode=input===minInput?1:2;
+              if(rangeMode===0){
+                if(autoRunning)stopAuto();
+                rangeMode=mode; rangeBuffer=''; rangeTyping=false; pendingRangeApply=false;
+                minInput.value=minNumber; maxInput.value=maxNumber;
+              }else{
+                rangeMode=mode; rangeBuffer=''; rangeTyping=false;
+              }
+              minInput.readOnly=mode!==1;
+              maxInput.readOnly=mode!==2;
+              minInput.classList.toggle('range-active',mode===1);
+              maxInput.classList.toggle('range-active',mode===2);
+              rangeInfo.classList.remove('range-error');
+              rangeInfo.textContent=mode===1?'最小値を入力 → Enterで決定':'最大値を入力 → Enterで決定';
+              firstInput.set(input,true);
+            };
+            [minInput,maxInput].forEach(input=>{
+              input.addEventListener('pointerdown',()=>setInputMode(input),{capture:true});
+              input.addEventListener('input',e=>{
+                if(!rangeMode||input.readOnly)return;
+                const replacing=firstInput.get(input)===true;
+                const raw=normalizeDigits(input.value).replace(/\\D/g,'');
+                if(replacing){
+                  const data=normalizeDigits(e.data||'').replace(/\\D/g,'');
+                  input.value=(data||raw).slice(0,4);
+                  firstInput.set(input,false);
+                }else{
+                  input.value=raw.slice(0,4);
+                }
+                rangeBuffer=input.value;
+                rangeTyping=true;
+              });
+              input.addEventListener('keydown',e=>{
+                if(e.key==='Enter'){
+                  e.preventDefault();
+                  e.stopImmediatePropagation();
+                  finishRangeInput(input.value,input===minInput?1:2);
+                }else if(e.key==='Escape'){
+                  e.preventDefault();
+                  e.stopImmediatePropagation();
+                  cancelRangeMode();
+                }
+              });
+            });
+          })();
+          """
+          s = s[:start] + patch + s[end:]
           p.write_text(s, encoding='utf-8')
-          print('Applied MOBILE_NATIVE_INPUT_V5')
           PY
       - name: Commit patch
-        shell: bash
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
