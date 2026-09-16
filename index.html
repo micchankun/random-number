@@ -126,7 +126,31 @@ historyToggle?.addEventListener('click',toggleHistory);historyToggle?.addEventLi
   },true);
   window.addEventListener('keydown',e=>{
     if(!isRangeInput(e.target))return;
-    if(/^\d$/.test(e.key)||e.key==='Backspace'||e.key==='Delete')e.stopPropagation();
+    const k=e.key;
+    const digit=normalizeDigits(k);
+    if(/^[0-9]$/.test(digit)){
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      const input=rangeMode===1?minInput:maxInput;
+      if(!rangeTyping){rangeBuffer='';rangeTyping=true;input.value=''}
+      if(rangeBuffer.length<4){rangeBuffer+=digit;input.value=rangeBuffer}
+      return;
+    }
+    if(k==='Backspace'||k==='Delete'){
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      const input=rangeMode===1?minInput:maxInput;
+      if(rangeTyping){rangeBuffer=rangeBuffer.slice(0,-1);input.value=rangeBuffer;if(rangeBuffer==='')rangeTyping=false}
+      return;
+    }
+    if(k==='Enter'){
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      const input=rangeMode===1?minInput:maxInput;
+      const value=rangeTyping?rangeBuffer:input.value;
+      finishRangeInput(value,rangeMode);
+      return;
+    }
   },true);
   window.addEventListener('beforeinput',e=>{
     if(isRangeInput(e.target))e.stopPropagation();
