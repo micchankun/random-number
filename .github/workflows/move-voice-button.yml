@@ -1,10 +1,10 @@
 name: Fix touch range input
 
 on:
-  workflow_dispatch:
   push:
     paths:
       - '.github/workflows/move-voice-button.yml'
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -14,35 +14,25 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Patch range input tap behavior
+      - name: Patch site
         run: |
           python - <<'PY'
           from pathlib import Path
-
-          marker = '''// RANGE_INPUT_TAP_START_V1
-[minInput,maxInput].forEach(input=>{
-  input.addEventListener('pointerdown',e=>{
-    if(!rangeMode){
-      e.preventDefault();
-      startRangeMode();
-    }
-  });
-});
-// RANGE_INPUT_TAP_START_V1_END
-'''
-
-          def patch(path):
-              p=Path(path)
+          marker = "// RANGE_INPUT_TAP_START_V2\n[minInput,maxInput].forEach(input=>input.addEventListener('pointerdown',e=>{if(!rangeMode){e.preventDefault();startRangeMode()}}));\n// RANGE_INPUT_TAP_START_V2_END\n"
+          for name in ('index.html','mobile.html'):
+              p=Path(name)
               s=p.read_text(encoding='utf-8')
-              import re
-              s=re.sub(r'// RANGE_INPUT_TAP_START_V[0-9]+.*?// RANGE_INPUT_TAP_START_V[0-9]+_END\s*','',s,flags=re.S)
               if 'function startRangeMode()' not in s:
-                  raise SystemExit(f'startRangeMode not found: {path}')
+                  raise SystemExit('startRangeMode not found in '+name)
+              a=s.find('// RANGE_INPUT_TAP_START_V')
+              if a>=0:
+                  b=s.find('// RANGE_INPUT_TAP_START_V',a+1)
+                  end=s.find('\n',b)
+                  if b>=0:
+                      b2=s.find('\n',b)+1
+                      s=s[:a]+s[b2:]
               s=s.replace('</script>',marker+'</script>',1)
               p.write_text(s,encoding='utf-8')
-
-          patch('index.html')
-          patch('mobile.html')
           PY
       - name: Commit site files
         run: |
