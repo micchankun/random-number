@@ -1,0 +1,125 @@
+name: Safe range input fix v6
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Patch index.html
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+          p = Path('index.html')
+          s = p.read_text(encoding='utf-8')
+
+          old_reset = "function resetNumbers(){if(pendingRangeApply){pendingRangeApply=false;if(!applyRange()){pendingRangeApply=true;return}return}createRandomNumbers();displayNumber();restartTimer()}"
+          new_reset = "function resetNumbers(){const min=Number(minInput.value),max=Number(maxInput.value);const valid=Number.isInteger(min)&&Number.isInteger(max)&&min>=0&&max<=9999&&min<=max;const changed=valid&&(min!==minNumber||max!==maxNumber);if(pendingRangeApply&&changed){pendingRangeApply=false;if(!applyRange()){pendingRangeApply=true;return}return}pendingRangeApply=false;createRandomNumbers();displayNumber();restartTimer()}"
+          if old_reset not in s:
+              raise SystemExit('resetNumbers block not found')
+          s = s.replace(old_reset, new_reset, 1)
+
+          old_focus = "function setRangeInputFocus(mode){minInput.classList.toggle('range-active',mode===1);maxInput.classList.toggle('range-active',mode===2);if(mode===1)minInput.focus();if(mode===2)maxInput.focus()}"
+          new_focus = "function setRangeInputFocus(mode,selectValue=false){minInput.classList.toggle('range-active',mode===1);maxInput.classList.toggle('range-active',mode===2);if(mode===1){minInput.focus({preventScroll:true});if(selectValue)try{minInput.select()}catch(_){}}if(mode===2){maxInput.focus({preventScroll:true});if(selectValue)try{maxInput.select()}catch(_){}}}"
+          if old_focus not in s:
+              raise SystemExit('focus block not found')
+          s = s.replace(old_focus, new_focus, 1)
+
+          old_start = "function startRangeMode(){if(autoRunning)stopAuto();rangeMode=1;rangeBuffer='';rangeTyping=false;pendingRangeApply=false;minInput.value=minNumber;maxInput.value=maxNumber;minInput.readOnly=true;maxInput.readOnly=true;setRangeInputFocus(1);rangeInfo.textContent='最小値を入力 → Enterで決定';rangeInfo.classList.remove('range-error')}"
+          new_start = "function startRangeMode(){if(autoRunning)stopAuto();rangeMode=1;rangeBuffer='';rangeTyping=false;pendingRangeApply=false;minInput.value=minNumber;maxInput.value=maxNumber;minInput.readOnly=false;maxInput.readOnly=true;minInput.setAttribute('inputmode','numeric');maxInput.setAttribute('inputmode','numeric');setRangeInputFocus(1,true);rangeInfo.textContent='最小値を入力 → Enterで決定';rangeInfo.classList.remove('range-error')}"
+          if old_start not in s:
+              raise SystemExit('start block not found')
+          s = s.replace(old_start, new_start, 1)
+
+          old_finish = "function finishRangeInput(value,mode){let v=normalizeDigits(value).replace(/\\D/g,'');if(v==='')return false;let n=Number(v);if(!Number.isInteger(n)||n<0||n>9999){rangeInfo.textContent='0000〜9999で入力してください';rangeInfo.classList.add('range-error');return false}if(mode===1){minInput.value=n;rangeMode=2;rangeBuffer='';rangeTyping=false;minInput.readOnly=true;maxInput.readOnly=false;minInput.classList.remove('range-active');maxInput.classList.add('range-active');rangeInfo.textContent='最大値を入力 → Enterで決定';return true}maxInput.value=n;pendingRangeApply=true;cancelRangeMode();rangeInfo.textContent=`範囲設定完了：${fmt(Number(minInput.value))} 〜 ${fmt(n)} ／ 0キーまたはリセットで適用`;rangeInfo.classList.remove('range-error');return true}"
+          new_finish = "function finishRangeInput(value,mode){let v=normalizeDigits(value).replace(/\\D/g,'');if(v==='')return false;let n=Number(v);if(!Number.isInteger(n)||n<0||n>9999){rangeInfo.textContent='0000〜9999で入力してください';rangeInfo.classList.add('range-error');return false}if(mode===1){minInput.value=n;rangeMode=2;rangeBuffer='';rangeTyping=false;minInput.readOnly=true;maxInput.readOnly=false;minInput.classList.remove('range-active');maxInput.classList.add('range-active');maxInput.setAttribute('inputmode','numeric');setRangeInputFocus(2,true);rangeInfo.textContent='最大値を入力 → Enterで決定';return true}maxInput.value=n;pendingRangeApply=(Number(minInput.value)!==minNumber||n!==maxNumber);cancelRangeMode();rangeInfo.textContent=`範囲設定完了：${fmt(Number(minInput.value))} 〜 ${fmt(n)} ／ 0キーまたはリセットで適用`;rangeInfo.classList.remove('range-error');return true}"
+          if old_finish not in s:
+              raise SystemExit('finish block not found')
+          s = s.replace(old_finish, new_finish, 1)
+
+          start = s.find('// MOBILE_NATIVE_INPUT_V5')
+          end_marker = '// HISTORY_PANEL_TOGGLE_V1'
+          end = s.find(end_marker, start)
+          if start < 0 or end < 0:
+              raise SystemExit('V5 marker block not found')
+          v6 = """// RANGE_INPUT_DEVICE_FIX_V6
+(()=>{
+  const setInputMode=input=>{
+    const mode=input===minInput?1:2;
+    if(rangeMode===0){
+      startRangeMode();
+      if(mode===2){
+        rangeMode=2;
+        rangeBuffer='';
+        rangeTyping=false;
+        minInput.readOnly=true;
+        maxInput.readOnly=false;
+        minInput.classList.remove('range-active');
+        maxInput.classList.add('range-active');
+        maxInput.focus({preventScroll:true});
+        try{maxInput.select()}catch(_){ }
+        rangeInfo.textContent='最大値を入力 → Enterで決定';
+      }
+    }else{
+      rangeMode=mode;
+      rangeBuffer='';
+      rangeTyping=false;
+      minInput.readOnly=mode!==1;
+      maxInput.readOnly=mode!==2;
+      minInput.classList.toggle('range-active',mode===1);
+      maxInput.classList.toggle('range-active',mode===2);
+      rangeInfo.classList.remove('range-error');
+      rangeInfo.textContent=mode===1?'最小値を入力 → Enterで決定':'最大値を入力 → Enterで決定';
+      input.readOnly=false;
+      input.setAttribute('inputmode','numeric');
+      input.focus({preventScroll:true});
+      try{input.select()}catch(_){ }
+    }
+  };
+  [minInput,maxInput].forEach(input=>{
+    input.addEventListener('pointerdown',e=>{
+      setInputMode(input);
+      e.stopPropagation();
+    },{capture:true});
+    input.addEventListener('click',e=>{
+      if(!input.readOnly){
+        input.focus({preventScroll:true});
+        try{input.select()}catch(_){ }
+      }
+      e.stopPropagation();
+    },{capture:true});
+    input.addEventListener('keydown',e=>{
+      if(e.key==='Enter'){
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        finishRangeInput(input.value,input===minInput?1:2);
+      }else if(e.key==='Escape'){
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        cancelRangeMode();
+      }
+    },{capture:true});
+  });
+})();
+"""
+          s = s[:start] + v6 + s[end:]
+
+          p.write_text(s, encoding='utf-8')
+          print('Patched index.html')
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git diff --cached --quiet && exit 0
+          git commit -m "Fix range input across PC mobile and tablet"
+          git push
