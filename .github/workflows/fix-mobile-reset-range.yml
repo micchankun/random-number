@@ -1,0 +1,38 @@
+name: Fix mobile reset range apply
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-mobile-reset-range.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fix mobile reset button
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('mobile.html')
+          s=p.read_text(encoding='utf-8')
+          marker='// MOBILE_RESET_RANGE_APPLY_FIX_V1'
+          if marker not in s:
+              needle='reset.onclick=()=>{if(rangeMode)return;flash(reset);shuffle();render()};'
+              patch=needle+"\ndocument.addEventListener('click',e=>{if(e.target===reset&&rangeMode===3){e.preventDefault();e.stopImmediatePropagation();if(typeof applyRange==='function'&&applyRange()){if(typeof cancelRange==='function')cancelRange();}}},true);\n"+marker
+              if needle not in s: raise SystemExit('reset handler not found')
+              s=s.replace(needle,patch,1)
+              p.write_text(s,encoding='utf-8')
+          PY
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add mobile.html
+          git diff --cached --quiet || git commit -m 'スマホ版リセットで保留中の範囲を適用'
+          git push
+      - name: Remove temporary workflow
+        run: |
+          rm -f .github/workflows/fix-mobile-reset-range.yml
+          git add .github/workflows/fix-mobile-reset-range.yml
+          git commit -m '一時修正ワークフローを削除'
+          git push
