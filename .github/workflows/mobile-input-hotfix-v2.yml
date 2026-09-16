@@ -1,0 +1,86 @@
+name: Mobile input hotfix v2
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Apply hotfix through GitHub API
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        shell: python
+        run: |
+          import base64, json, os, urllib.request
+          api = f"https://api.github.com/repos/{os.environ['REPO']}/contents/index.html"
+          req = urllib.request.Request(api, headers={"Authorization": f"Bearer {os.environ['GH_TOKEN']}", "Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28"})
+          with urllib.request.urlopen(req) as r:
+              meta = json.load(r)
+          raw = base64.b64decode(meta['content']).decode('utf-8')
+          marker = '<!-- MOBILE_RANGE_INPUT_HOTFIX_V1 -->'
+          if marker in raw:
+              print('Hotfix already present')
+              raise SystemExit(0)
+          patch = '''
+<!-- MOBILE_RANGE_INPUT_HOTFIX_V1 -->
+<script>
+(()=>{
+  const inputs=[document.getElementById('minInput'),document.getElementById('maxInput')].filter(Boolean);
+  for(const input of inputs){
+    input.addEventListener('pointerdown',e=>{
+      e.stopImmediatePropagation();
+      requestAnimationFrame(()=>{
+        input.focus({preventScroll:true});
+        try{input.setSelectionRange(input.value.length,input.value.length)}catch(_){}
+      });
+    },true);
+    input.addEventListener('beforeinput',e=>{
+      if(e.inputType==='insertText'||e.inputType==='insertCompositionText'||e.inputType==='insertFromPaste'){
+        const data=(e.data??'').replace(/\\D/g,'');
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        if(!data)return;
+        const old=input.value.replace(/\\D/g,'');
+        const start=input.selectionStart??old.length;
+        const end=input.selectionEnd??old.length;
+        input.value=(old.slice(0,start)+data+old.slice(end)).slice(0,4);
+        input.dispatchEvent(new Event('input',{bubbles:true}));
+        return;
+      }
+      if(e.inputType==='deleteContentBackward'||e.inputType==='deleteContentForward'){
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        const old=input.value;
+        if(e.inputType==='deleteContentBackward'){
+          const pos=input.selectionStart??old.length;
+          if(pos>0) input.value=old.slice(0,pos-1)+old.slice(input.selectionEnd??pos);
+        }else{
+          const pos=input.selectionStart??old.length;
+          input.value=old.slice(0,pos)+old.slice(input.selectionEnd??pos+1);
+        }
+        input.dispatchEvent(new Event('input',{bubbles:true}));
+      }
+    },true);
+    input.addEventListener('keydown',e=>{
+      if(/^\\d$/.test(e.key)||e.key==='Backspace'||e.key==='Delete') e.stopImmediatePropagation();
+    },true);
+  }
+})();
+</script>
+'''
+          raw = raw.replace('</body>', patch + '</body>')
+          payload = json.dumps({
+              'message': 'Fix mobile range input keyboard and duplicate digits',
+              'content': base64.b64encode(raw.encode('utf-8')).decode('ascii'),
+              'sha': meta['sha'],
+              'branch': 'main'
+          }).encode('utf-8')
+          put = urllib.request.Request(api, data=payload, method='PUT', headers={"Authorization": f"Bearer {os.environ['GH_TOKEN']}", "Accept": "application/vnd.github+json", "Content-Type": "application/json", "X-GitHub-Api-Version": "2022-11-28"})
+          with urllib.request.urlopen(put) as r:
+              print(r.read().decode('utf-8')[:500])
