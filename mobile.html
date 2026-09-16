@@ -62,6 +62,9 @@ document.addEventListener('pointerdown',e=>{
 });
 // RANGE_BLANK_TAP_CONFIRM_V1_END
 
+// RANGE_INPUT_TAP_KEYBOARD_V4
+[minInput,maxInput].forEach(input=>input.addEventListener('pointerdown',e=>{e.preventDefault();rangeButton.click();setTimeout(()=>{input.readOnly=false;input.setAttribute('inputmode','numeric');input.focus();input.select()},80)}));
+// RANGE_INPUT_TAP_KEYBOARD_V4_END
 </script>
 </body>
 </html>
