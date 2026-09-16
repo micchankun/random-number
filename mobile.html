@@ -62,9 +62,10 @@ document.addEventListener('pointerdown',e=>{
 });
 // RANGE_BLANK_TAP_CONFIRM_V1_END
 
-// RANGE_INPUT_TAP_KEYBOARD_V6
-[minInput,maxInput].forEach(input=>input.addEventListener('pointerdown',e=>{e.stopPropagation();let mode=input===minInput?1:2;if(rangeMode===0){if(typeof startRange==='function')startRange();else if(typeof startRangeMode==='function')startRangeMode()}rangeMode=mode;rangeBuffer='';rangeTyping=false;minInput.readOnly=mode!==1;maxInput.readOnly=mode!==2;minInput.classList.toggle('range-active',mode===1);maxInput.classList.toggle('range-active',mode===2);rangeInfo.classList.remove('range-error');rangeInfo.textContent=mode===1?'最小値を入力 → Enterで決定':'最大値を入力 → Enterで決定';input.setAttribute('inputmode','numeric');input.focus();input.select()}));
-// RANGE_INPUT_TAP_KEYBOARD_V6_END
+// RANGE_INPUT_TAP_KEYBOARD_V7
+[minInput,maxInput].forEach(input=>input.addEventListener('pointerdown',e=>{e.stopPropagation();let mode=input===minInput?1:2;if(rangeMode===0){stopAuto();rangeMode=mode;rangeBuffer='';rangeTyping=false;minInput.value=minNumber;maxInput.value=maxNumber;minInput.readOnly=mode!==1;maxInput.readOnly=mode!==2}else{rangeMode=mode;rangeBuffer='';rangeTyping=false;minInput.readOnly=mode!==1;maxInput.readOnly=mode!==2}minInput.classList.toggle('range-active',mode===1);maxInput.classList.toggle('range-active',mode===2);rangeInfo.classList.remove('error');rangeInfo.textContent=mode===1?'最小値を入力して決定 → 最大値':'最大値を入力して決定';input.setAttribute('inputmode','numeric');input.focus();input.select()}));
+rangeButton.onclick=()=>{if(rangeMode)return;flash(rangeButton);startRange();minInput.readOnly=false;maxInput.readOnly=true;minInput.classList.add('range-active');maxInput.classList.remove('range-active');rangeInfo.textContent='最小値を入力して決定 → 最大値';minInput.setAttribute('inputmode','numeric');minInput.focus();minInput.select()};
+// RANGE_INPUT_TAP_KEYBOARD_V7_END
 </script>
 </body>
 </html>
