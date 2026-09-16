@@ -55,6 +55,14 @@ rangeButton.addEventListener('click',()=>{
 });
 // RANGE_BUTTON_FOCUS_FIX_V1_END
 
+// RANGE_BLANK_TAP_CONFIRM_V1
+document.addEventListener('pointerdown',e=>{
+    if(!rangeMode)return;
+    if(e.target.closest('input,button,select'))return;
+    document.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',code:'Enter',bubbles:true}));
+});
+// RANGE_BLANK_TAP_CONFIRM_V1_END
+
 </script>
 </body>
 </html>
