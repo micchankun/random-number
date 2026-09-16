@@ -25,8 +25,6 @@ jobs:
               s = path.read_text(encoding='utf-8')
               original = s
 
-              # After the maximum value is confirmed, enter a pending state.
-              # The new range is not applied until the 0 key / reset button is pressed.
               if 'function finishRangeInput' in s:
                   pattern = r"function finishRangeInput\(value,mode\)\{.*?\}\nfunction handleRangeKey"
                   repl = """function finishRangeInput(value,mode){let v=normalizeDigits(value).replace(/\\D/g,'');if(v==='')return false;let n=Number(v);if(!Number.isInteger(n)||n<0||n>9999){rangeInfo.textContent='0000〜9999で入力してください';rangeInfo.classList.add('range-error');return false}if(mode===1){minInput.value=n;rangeMode=2;rangeBuffer='';rangeTyping=false;setRangeInputFocus(2);rangeInfo.textContent='最大値を入力 → Enterで決定';return true}maxInput.value=n;rangeMode=3;rangeBuffer='';rangeTyping=false;minInput.readOnly=true;maxInput.readOnly=true;minInput.classList.remove('range-active');maxInput.classList.remove('range-active');minInput.blur();maxInput.blur();rangeInfo.textContent=`範囲設定完了：${fmt(Number(minInput.value))} 〜 ${fmt(Number(maxInput.value))} ／ 0キーで適用`;rangeInfo.classList.remove('range-error');return true}\nfunction handleRangeKey"""
@@ -43,7 +41,6 @@ jobs:
                       raise SystemExit(f'{path}: rangeKey replacement count={n}')
                   s = s2
 
-              # PC/tablet reset button: apply a pending range when rangeMode===3.
               if 'resetBtn.onclick=' in s:
                   s = s.replace(
                       "resetBtn.onclick=()=>{if(rangeMode)return;flash(resetBtn);shuffle();render()};",
@@ -55,22 +52,15 @@ jobs:
                       "reset.onclick=()=>{if(rangeMode===3){if(applyRange())cancelRangeMode();return}if(rangeMode)return;flash(reset);resetNumbers()};"
                   )
 
-              # Keyboard 0: same pending-range behavior as the reset button.
               if "if(k==='0')" in s:
                   s = s.replace(
                       "if(k==='0'){e.preventDefault();flash(resetBtn);resetNumbers();return}",
                       "if(k==='0'){e.preventDefault();flash(resetBtn);if(rangeMode===3){if(applyRange())cancelRange();return}if(rangeMode)return;resetNumbers();return}"
                   )
-              if "if(k==='0')" in s and "if(rangeMode===3){if(applyRange())cancelRangeMode();return}" not in s:
                   s = s.replace(
                       "if(k==='0'){e.preventDefault();flash(reset);resetNumbers();return}",
                       "if(k==='0'){e.preventDefault();flash(reset);if(rangeMode===3){if(applyRange())cancelRangeMode();return}if(rangeMode)return;resetNumbers();return}"
                   )
-
-              # Mobile blank-area Enter is allowed to finalize the maximum into pending state;
-              # it must not apply the range until 0 is pressed.
-              if 'RANGE_BLANK_TAP_CONFIRM_V1' in s:
-                  pass
 
               if s == original:
                   raise SystemExit(f'{path}: no changes made')
@@ -84,3 +74,5 @@ jobs:
           git diff --cached --quiet && exit 0
           git commit -m '数字範囲選択を0キー適用方式に変更'
           git push
+
+# retrigger
