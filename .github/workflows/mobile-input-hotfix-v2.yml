@@ -1,4 +1,4 @@
-name: Mobile input hotfix v2
+name: Mobile range input final fix
 
 on:
   push:
@@ -11,76 +11,68 @@ jobs:
   patch:
     runs-on: ubuntu-latest
     steps:
-      - name: Apply hotfix through GitHub API
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPO: ${{ github.repository }}
-        shell: python
+      - uses: actions/checkout@v4
+      - name: Patch index.html
+        shell: bash
         run: |
-          import base64, json, os, urllib.request
-          api = f"https://api.github.com/repos/{os.environ['REPO']}/contents/index.html"
-          req = urllib.request.Request(api, headers={"Authorization": f"Bearer {os.environ['GH_TOKEN']}", "Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28"})
-          with urllib.request.urlopen(req) as r:
-              meta = json.load(r)
-          raw = base64.b64decode(meta['content']).decode('utf-8')
-          marker = '<!-- MOBILE_RANGE_INPUT_HOTFIX_V1 -->'
-          if marker in raw:
-              print('Hotfix already present')
+          python3 <<'PY'
+          from pathlib import Path
+          p = Path('index.html')
+          s = p.read_text(encoding='utf-8')
+          marker = '<!-- MOBILE_RANGE_INPUT_FIX_V2 -->'
+          if marker in s:
+              print('Final mobile input fix already present')
               raise SystemExit(0)
-          patch = '''
-<!-- MOBILE_RANGE_INPUT_HOTFIX_V1 -->
+          patch = r'''
+<!-- MOBILE_RANGE_INPUT_FIX_V2 -->
 <script>
 (()=>{
-  const inputs=[document.getElementById('minInput'),document.getElementById('maxInput')].filter(Boolean);
-  for(const input of inputs){
-    input.addEventListener('pointerdown',e=>{
-      e.stopImmediatePropagation();
-      requestAnimationFrame(()=>{
-        input.focus({preventScroll:true});
-        try{input.setSelectionRange(input.value.length,input.value.length)}catch(_){}
-      });
-    },true);
-    input.addEventListener('beforeinput',e=>{
-      if(e.inputType==='insertText'||e.inputType==='insertCompositionText'||e.inputType==='insertFromPaste'){
-        const data=(e.data??'').replace(/\\D/g,'');
-        e.preventDefault();
-        e.stopImmediatePropagation();
-        if(!data)return;
-        const old=input.value.replace(/\\D/g,'');
-        const start=input.selectionStart??old.length;
-        const end=input.selectionEnd??old.length;
-        input.value=(old.slice(0,start)+data+old.slice(end)).slice(0,4);
-        input.dispatchEvent(new Event('input',{bubbles:true}));
-        return;
-      }
-      if(e.inputType==='deleteContentBackward'||e.inputType==='deleteContentForward'){
-        e.preventDefault();
-        e.stopImmediatePropagation();
-        const old=input.value;
-        if(e.inputType==='deleteContentBackward'){
-          const pos=input.selectionStart??old.length;
-          if(pos>0) input.value=old.slice(0,pos-1)+old.slice(input.selectionEnd??pos);
-        }else{
-          const pos=input.selectionStart??old.length;
-          input.value=old.slice(0,pos)+old.slice(input.selectionEnd??pos+1);
-        }
-        input.dispatchEvent(new Event('input',{bubbles:true}));
-      }
-    },true);
-    input.addEventListener('keydown',e=>{
-      if(/^\\d$/.test(e.key)||e.key==='Backspace'||e.key==='Delete') e.stopImmediatePropagation();
-    },true);
-  }
+  const ids=['minInput','maxInput'];
+  const isRangeInput=t=>t && ids.includes(t.id);
+
+  // Stop the older document-level keyboard handlers before they can modify
+  // the input value. The browser then performs the normal native edit once.
+  window.addEventListener('keydown',e=>{
+    if(!isRangeInput(e.target)) return;
+    if(/^\d$/.test(e.key)||e.key==='Backspace'||e.key==='Delete'){
+      e.stopPropagation();
+    }
+  },true);
+
+  // Likewise, bypass the older custom beforeinput handler so mobile keyboards
+  // use the browser's native insertion exactly once.
+  window.addEventListener('beforeinput',e=>{
+    if(isRangeInput(e.target)) e.stopPropagation();
+  },true);
+
+  // Focus the tapped range field before the old document pointer handler runs,
+  // allowing mobile browsers to open the numeric keyboard normally.
+  window.addEventListener('pointerdown',e=>{
+    const input=e.target && e.target.closest ? e.target.closest('#minInput,#maxInput') : null;
+    if(!input) return;
+    e.stopPropagation();
+    input.focus({preventScroll:true});
+    try{
+      const p=input.value.length;
+      input.setSelectionRange(p,p);
+    }catch(_){ }
+  },true);
 })();
 </script>
 '''
-          raw = raw.replace('</body>', patch + '</body>')
-          payload = json.dumps({
-              'message': 'Fix mobile range input keyboard and duplicate digits',
-              'content': base64.b64encode(raw.encode('utf-8')).decode('ascii'),
-              'sha': meta['sha'],
-              'branch': 'main'
-          }).encode('utf-8')
-          put = urllib.request.Request(api, data=payload, method='PUT', headers={"Authorization": f"Bearer {os.environ['GH_TOKEN']}", "Accept": "application/vnd.github+json", "Content-Type": "application/json", "X-GitHub-Api-Version": "2022-11-28"})
-          with urllib.request.urlopen(put) as r:
-              print(r.read().decode('utf-8')[:500])
+          s = s.replace('</body>', patch + '</body>')
+          p.write_text(s, encoding='utf-8')
+          print('Applied final mobile range input fix')
+          PY
+      - name: Commit patch
+        shell: bash
+        run: |
+          if git diff --quiet -- index.html; then
+            echo 'No index.html changes'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html
+          git commit -m 'Fix mobile range input focus and duplicate digits'
+          git push
