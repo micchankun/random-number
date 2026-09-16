@@ -20,14 +20,14 @@
 <div class="controls">
 <button id="prev" class="prev">前の数字</button><button id="next" class="next">次の数字</button>
 <button id="auto" class="auto">自動表示開始</button>
-<div class="interval"><button id="dec" class="arrow">＜</button><button id="intervalButton" class="interval-display">5秒</button><button id="inc" class="arrow">＞</button><div id="menu" class="menu"></div></div>
+<div class="interval"><button id="dec" class="arrow">＜</button><button id="intervalButton" class="interval-display">3秒</button><button id="inc" class="arrow">＞</button><div id="menu" class="menu"></div></div>
 <button id="first" class="jump">最初に戻る</button><button id="last" class="last">最後に進む</button><button id="reset" class="reset">リセット</button><div class="voice"><button id="voiceToggle" class="voice-toggle" type="button">🔇 音声読み上げ：OFF</button><select id="voiceSelect" aria-label="読み上げ音声"></select></div>
 </div>
 </main>
 <script>
 const INTERVALS=[['0.1秒',100],['0.2秒',200],['0.3秒',300],['0.4秒',400],['0.5秒',500],['0.6秒',600],['0.7秒',700],['0.8秒',800],['0.9秒',900],['1秒',1000],['1.1秒',1100],['1.2秒',1200],['1.3秒',1300],['1.4秒',1400],['1.5秒',1500],['1.6秒',1600],['1.7秒',1700],['1.8秒',1800],['1.9秒',1900],['2秒',2000],['2.1秒',2100],['2.2秒',2200],['2.3秒',2300],['2.4秒',2400],['2.5秒',2500],['2.6秒',2600],['2.7秒',2700],['2.8秒',2800],['2.9秒',2900],['3秒',3000],['5秒',5000],['10秒',10000],['15秒',15000],['20秒',20000],['30秒',30000],['45秒',45000],['1分',60000],['1分30秒',90000],['2分',120000],['2分30秒',150000],['3分',180000],['3分30秒',210000],['4分',240000],['4分30秒',270000],['5分',300000]];
 const $=id=>document.getElementById(id),numberEl=$('number'),positionEl=$('position'),statusEl=$('status'),historyEl=$('history'),minInput=$('minInput'),maxInput=$('maxInput'),rangeInfo=$('rangeInfo'),rangeButton=$('rangeButton'),prev=$('prev'),next=$('next'),auto=$('auto'),first=$('first'),last=$('last'),reset=$('reset'),dec=$('dec'),inc=$('inc'),intervalButton=$('intervalButton'),menu=$('menu'),voiceToggle=$('voiceToggle'),voiceSelect=$('voiceSelect');
-let minNumber=0,maxNumber=9999,numbers=[],index=0,running=false,timer=null,intervalIndex=30,rangeMode=0,rangeBuffer='',rangeTyping=false,voiceEnabled=false,selectedVoice=null,availableVoices=[];
+let minNumber=0,maxNumber=9999,numbers=[],index=0,running=false,timer=null,intervalIndex=29,rangeMode=0,rangeBuffer='',rangeTyping=false,voiceEnabled=false,selectedVoice=null,availableVoices=[];
 function fmt(n){return String(n).padStart(4,'0')}function normalize(v){return String(v).replace(/[０-９]/g,d=>String.fromCharCode(d.charCodeAt(0)-65248))}function shuffle(){numbers=Array.from({length:maxNumber-minNumber+1},(_,i)=>i+minNumber);for(let i=numbers.length-1;i>0;i--){let r=Math.floor(Math.random()*(i+1));[numbers[i],numbers[r]]=[numbers[r],numbers[i]]}index=0}
 function speakNumber(){if(!voiceEnabled||!('speechSynthesis'in window))return;window.speechSynthesis.cancel();let u=new SpeechSynthesisUtterance(fmt(numbers[index]).split('').join(' '));u.lang='ja-JP';if(selectedVoice)u.voice=selectedVoice;u.rate=1;u.pitch=1;window.speechSynthesis.speak(u)}
 function loadVoices(){if(!('speechSynthesis'in window)){voiceSelect.disabled=true;voiceToggle.disabled=true;voiceToggle.textContent='🔇 音声非対応';return}availableVoices=window.speechSynthesis.getVoices().filter(v=>v.lang&&v.lang.toLowerCase().startsWith('ja'));voiceSelect.innerHTML='';if(!availableVoices.length){let o=document.createElement('option');o.textContent='標準音声（ブラウザ）';voiceSelect.appendChild(o);voiceSelect.disabled=true;return}voiceSelect.disabled=false;availableVoices.forEach((v,i)=>{let o=document.createElement('option');o.value=String(i);o.textContent=v.name+'（'+v.lang+'）';voiceSelect.appendChild(o)});let saved=localStorage.getItem('randomNumberVoice');let idx=availableVoices.findIndex(v=>v.voiceURI===saved);if(idx<0)idx=0;voiceSelect.value=String(idx);selectedVoice=availableVoices[idx]}
@@ -43,6 +43,93 @@ function updateInterval(){intervalButton.textContent=INTERVALS[intervalIndex][0]
 [minInput,maxInput].forEach(input=>input.addEventListener('input',()=>{if(!rangeMode||input.readOnly)return;let v=normalize(input.value).replace(/\D/g,'').slice(0,4);input.value=v;rangeBuffer=v;rangeTyping=true}));document.addEventListener('keydown',e=>{if(rangeMode){rangeKey(e);return}if(e.target.matches('input,select'))return;let k=e.key;if(k==='b'||k==='B'){e.preventDefault();flash(voiceToggle);setVoiceEnabled(!voiceEnabled);if(voiceEnabled)speakNumber();restart();return}if(k==='v'||k==='V'){e.preventDefault();cycleVoice();restart();return}});
 voiceToggle.onclick=()=>{if(rangeMode)return;flash(voiceToggle);setVoiceEnabled(!voiceEnabled);if(voiceEnabled)speakNumber();restart()};voiceSelect.onchange=()=>{let i=Number(voiceSelect.value);selectedVoice=availableVoices[i]||null;if(selectedVoice)localStorage.setItem('randomNumberVoice',selectedVoice.voiceURI);if(voiceEnabled)speakNumber();restart()};if('speechSynthesis'in window){window.speechSynthesis.addEventListener('voiceschanged',loadVoices);loadVoices()}
 shuffle();updateInterval();render();
+// YUKKURI_LOCAL_VOICE_V1
+const YUKKURI_LOCAL_URL='http://127.0.0.1:8765';
+let voiceMode='browser',currentAudio=null;
+function addYukkuriOption(){
+    if(!voiceSelect)return;
+    if(![...voiceSelect.options].some(o=>o.value==='__yukkuri_local__')){
+        let o=document.createElement('option');
+        o.value='__yukkuri_local__';
+        o.textContent='ゆっくり（ローカル）';
+        voiceSelect.appendChild(o);
+    }
+    let savedMode=localStorage.getItem('randomNumberVoiceMode');
+    if(savedMode==='yukkuri'){voiceMode='yukkuri';voiceSelect.value='__yukkuri_local__';}
+    else if(voiceSelect.value!=='__yukkuri_local__'){voiceMode='browser';}
+}
+function cancelYukkuri(){
+    if(currentAudio){currentAudio.pause();currentAudio.currentTime=0;currentAudio=null;}
+}
+async function speakYukkuri(text){
+    cancelYukkuri();
+    try{
+        let r=await fetch(YUKKURI_LOCAL_URL+'/speak',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})});
+        if(!r.ok)throw new Error('Yukkuri server '+r.status);
+        let blob=await r.blob(),url=URL.createObjectURL(blob),audio=new Audio(url);
+        currentAudio=audio;
+        audio.onended=()=>{URL.revokeObjectURL(url);if(currentAudio===audio)currentAudio=null};
+        await audio.play();
+    }catch(e){console.warn('ゆっくり（ローカル）を再生できません。ローカルサーバーを起動してください。',e);}
+}
+function speakNumber(){
+    if(!voiceEnabled)return;
+    let text=fmt(numbers[currentIndex]).split('').join(' ');
+    if(voiceMode==='yukkuri'){
+        if('speechSynthesis'in window)window.speechSynthesis.cancel();
+        speakYukkuri(text);
+        return;
+    }
+    if(!('speechSynthesis'in window))return;
+    window.speechSynthesis.cancel();
+    let u=new SpeechSynthesisUtterance(text);u.lang='ja-JP';if(selectedVoice)u.voice=selectedVoice;u.rate=1;u.pitch=1;window.speechSynthesis.speak(u);
+}
+function setVoiceEnabled(enabled){
+    voiceEnabled=enabled;
+    voiceToggle.textContent=enabled?'🔊 音声読み上げ：ON':'🔇 音声読み上げ：OFF';
+    voiceToggle.classList.toggle('on',enabled);
+    if(!enabled){if('speechSynthesis'in window)window.speechSynthesis.cancel();cancelYukkuri();}
+    else speakNumber();
+}
+function cycleVoice(){
+    let opts=[...voiceSelect.options];
+    if(!opts.length)return;
+    let i=Math.max(0,opts.findIndex(o=>o.value===voiceSelect.value));
+    i=(i+1)%opts.length;
+    voiceSelect.value=opts[i].value;
+    voiceSelect.onchange();
+}
+function setupYukkuriVoice(){
+    addYukkuriOption();
+    voiceSelect.onchange=()=>{
+        let value=voiceSelect.value;
+        if(value==='__yukkuri_local__'){
+            voiceMode='yukkuri';
+            localStorage.setItem('randomNumberVoiceMode','yukkuri');
+        }else{
+            voiceMode='browser';
+            localStorage.setItem('randomNumberVoiceMode','browser');
+            let i=Number(value);
+            selectedVoice=availableVoices[i]||null;
+            if(selectedVoice)localStorage.setItem('randomNumberVoice',selectedVoice.voiceURI);
+        }
+        if(voiceEnabled)speakNumber();
+        if(typeof restartTimer==='function')restartTimer();
+        else if(typeof restart==='function')restart();
+    };
+    if('speechSynthesis'in window){
+        window.speechSynthesis.onvoiceschanged=()=>{
+            loadVoices();
+            addYukkuriOption();
+            if(voiceMode==='yukkuri')voiceSelect.value='__yukkuri_local__';
+        };
+    }
+    if(localStorage.getItem('randomNumberVoiceMode')==='yukkuri')voiceSelect.value='__yukkuri_local__';
+    voiceMode=voiceSelect.value==='__yukkuri_local__'?'yukkuri':'browser';
+}
+setupYukkuriVoice();
+// YUKKURI_LOCAL_VOICE_V1_END
+
 </script>
 </body>
 </html>
