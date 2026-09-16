@@ -55,85 +55,65 @@ document.addEventListener('pointerdown',e=>{if(!rangeMode)return;if(e.target.clo
 function toggleHistory(){if(!historyPanel)return;let collapsed=historyPanel.classList.toggle('collapsed');historyArrow.textContent=collapsed?'▸':'▾';historyToggle.setAttribute('aria-expanded',String(!collapsed));}
 historyToggle?.addEventListener('click',toggleHistory);historyToggle?.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();toggleHistory()}});
 // HISTORY_PANEL_TOGGLE_V1_END
-// RANGE_DEFERRED_APPLY_V1
-function finishPendingRange(){
-  if(rangeMode!==3)return false;
-  if(!applyRange())return false;
-  if(typeof cancelRange==='function')cancelRange();
-  else if(typeof cancelRangeMode==='function')cancelRangeMode();
-  return true;
-}
-function markPendingRange(){
-  rangeMode=3;rangeBuffer='';rangeTyping=false;
-  minInput.readOnly=true;maxInput.readOnly=true;
-  minInput.classList.remove('range-active');maxInput.classList.remove('range-active');
-  minInput.blur();maxInput.blur();
-  let mn=Number(normalizeDigits(minInput.value));
-  let mx=Number(normalizeDigits(maxInput.value));
-  rangeInfo.textContent=`範囲設定完了：${fmt(mn)} 〜 ${fmt(mx)} ／ 0キーで適用`;
-  rangeInfo.classList.remove('range-error');
-}
-document.addEventListener('keydown',e=>{
-  if(e.key==='0'&&rangeMode===3){e.preventDefault();e.stopImmediatePropagation();finishPendingRange();return}
-  if(e.key==='Enter'&&rangeMode===2){
-    let value=rangeTyping?rangeBuffer:(rangeMode===1?minInput:maxInput).value;
-    let n=Number(normalizeDigits(value));
-    if(!Number.isInteger(n)||n<0||n>9999)return;
-    e.preventDefault();e.stopImmediatePropagation();
-    maxInput.value=n;markPendingRange();return;
-  }
-},true);
-document.addEventListener('pointerdown',e=>{
-  if(rangeMode!==2)return;
-  if(e.target.closest('input,button,select'))return;
-  document.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',code:'Enter',bubbles:true}));
-},true);
-const resetControl = typeof resetBtn !== 'undefined' ? resetBtn : reset;
-[rangeButton,resetControl].filter(Boolean).forEach(b=>b.addEventListener('click',()=>{
-  if(rangeMode===3){setTimeout(finishPendingRange,0)}
-}));
-// RANGE_DEFERRED_APPLY_V1_END
-// RANGE_DEFERRED_APPLY_FIX_V3
-function finishPendingRangeV3(){
-  if(rangeMode!==3)return false;
-  if(!applyRange())return false;
-  if(typeof cancelRange==='function')cancelRange();
-  else if(typeof cancelRangeMode==='function')cancelRangeMode();
-  return true;
-}
-function markPendingRangeV3(){
+// RANGE_DEFERRED_APPLY_FINAL_V4
+let pendingRangeApply=false;
+function markPendingRangeFinal(){
   if(rangeMode!==2)return false;
   let value=rangeTyping?rangeBuffer:maxInput.value;
   let norm=typeof normalizeDigits==='function'?normalizeDigits(value):typeof normalize==='function'?normalize(value):value;
   let n=Number(norm);
-  if(!Number.isInteger(n)||n<0||n>9999){rangeInfo.textContent='最大値は0000〜9999';rangeInfo.classList.add('error');return false}
+  if(!Number.isInteger(n)||n<0||n>9999){
+    rangeInfo.textContent='最大値は0000〜9999';
+    rangeInfo.classList.add('error');
+    return false
+  }
   maxInput.value=n;
-  rangeMode=3;rangeBuffer='';rangeTyping=false;
-  minInput.readOnly=true;maxInput.readOnly=true;
+  pendingRangeApply=true;
+  rangeMode=0;rangeBuffer='';rangeTyping=false;
+  minInput.readOnly=false;maxInput.readOnly=false;
   minInput.classList.remove('range-active');maxInput.classList.remove('range-active');
   minInput.blur();maxInput.blur();
-  rangeInfo.textContent=`範囲設定完了：${fmt(Number(minInput.value))} 〜 ${fmt(n)} ／ 0キーで適用`;
+  rangeInfo.textContent=`範囲設定完了：${fmt(Number(minInput.value))} 〜 ${fmt(n)} ／ 0キーまたはリセットで適用`;
   rangeInfo.classList.remove('error');
   return true;
 }
+function applyPendingRangeFinal(){
+  if(!pendingRangeApply)return false;
+  pendingRangeApply=false;
+  return applyRange();
+}
 document.addEventListener('keydown',e=>{
-  if(rangeMode===3&&e.key==='0'){
-    e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();finishPendingRangeV3();return;
+  if(pendingRangeApply&&e.key==='0'){
+    e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();
+    applyPendingRangeFinal();
+    return;
   }
   if(rangeMode===2&&e.key==='Enter'){
-    if(markPendingRangeV3()){e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();}
-    return;
+    if(markPendingRangeFinal()){
+      e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();
+    }
   }
 },true);
 document.addEventListener('pointerdown',e=>{
   if(rangeMode!==2)return;
   if(e.target.closest('input,button,select'))return;
-  if(markPendingRangeV3()){e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();}
+  if(markPendingRangeFinal()){
+    e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();
+  }
 },true);
-[rangeButton,resetBtn||reset].filter(Boolean).forEach(b=>b.addEventListener('click',()=>{
-  if(rangeMode===3)setTimeout(finishPendingRangeV3,0);
-}));
-// RANGE_DEFERRED_APPLY_FIX_V3_END
+resetBtn.addEventListener('click',e=>{
+  if(!pendingRangeApply)return;
+  e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();
+  flash(resetBtn);
+  applyPendingRangeFinal();
+},true);
+reset.addEventListener('click',e=>{
+  if(!pendingRangeApply)return;
+  e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();
+  flash(reset);
+  applyPendingRangeFinal();
+},true);
+// RANGE_DEFERRED_APPLY_FINAL_V4_END
 </script>
 </body>
 </html>
