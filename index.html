@@ -141,5 +141,25 @@ historyToggle?.addEventListener('click',toggleHistory);historyToggle?.addEventLi
   },true);
 })();
 </script>
+<!-- MOBILE_TABLET_DOUBLE_INPUT_GUARD -->
+<script>
+(()=>{
+  const mq=window.matchMedia('(max-width: 600px)');
+  if(!mq.matches)return;
+  let handledDigit='';
+  window.addEventListener('keydown',e=>{
+    if(e.target!==minInput&&e.target!==maxInput)return;
+    const digit=normalizeDigits(e.key);
+    if(!/^[0-9]$/.test(digit))return;
+    handledDigit=digit;
+    setTimeout(()=>{handledDigit=''},150);
+  },true);
+  window.addEventListener('beforeinput',e=>{
+    if(e.target!==minInput&&e.target!==maxInput)return;
+    const data=normalizeDigits(e.data??'').replace(/\D/g,'');
+    if(data&&data===handledDigit){e.preventDefault();e.stopImmediatePropagation();handledDigit='';}
+  },true);
+})();
+</script>
 </body>
 </html>
