@@ -63,7 +63,7 @@ function setIntervalIndex(i){intervalIndex=Math.max(0,Math.min(INTERVALS.length-
 INTERVALS.forEach((x,i)=>{let b=document.createElement('button');b.type='button';b.className='interval-option';b.textContent=x[0];b.onclick=e=>{e.stopPropagation();if(rangeMode||displayCountMode)return;clearTemporaryNotice();flash(b);setIntervalIndex(i);menu.classList.remove('open')};menu.appendChild(b)});updateInterval();
 function setRangeInputFocus(mode,selectValue=false){minInput.classList.toggle('range-active',mode===1);maxInput.classList.toggle('range-active',mode===2);if(mode===1){minInput.focus({preventScroll:true});if(selectValue)try{minInput.select()}catch(_){}}if(mode===2){maxInput.focus({preventScroll:true});if(selectValue)try{maxInput.select()}catch(_){}}}
 function cancelRangeMode(){rangeMode=0;rangeBuffer='';rangeTyping=false;minInput.readOnly=false;maxInput.readOnly=false;minInput.blur();maxInput.blur();setRangeInputFocus(0);statusEl.textContent=autoRunning?'自動表示中':'自動表示停止中'}
-function startRangeMode(){rangeMode=1;rangeBuffer='';rangeTyping=false;minInput.readOnly=false;maxInput.readOnly=true;minInput.setAttribute('inputmode','numeric');maxInput.setAttribute('inputmode','numeric');setRangeInputFocus(1,true);rangeInfo.textContent='最小値を入力 → Enterで決定';rangeInfo.classList.remove('range-error');clearTemporaryNotice()}
+function startRangeMode(){rangeOriginalMin=minInput.value;rangeOriginalMax=maxInput.value;rangeMode=1;rangeBuffer='';rangeTyping=false;minInput.readOnly=false;maxInput.readOnly=true;minInput.setAttribute('inputmode','numeric');maxInput.setAttribute('inputmode','numeric');setRangeInputFocus(1,true);rangeInfo.textContent='最小値を入力 → Enterで決定';rangeInfo.classList.remove('range-error');clearTemporaryNotice()}
 function normalizeDigits(value){return String(value).replace(/[０-９]/g,d=>String.fromCharCode(d.charCodeAt(0)-0xFEE0))}
 function finishRangeInput(value,mode){let v=normalizeDigits(value).replace(/\D/g,'');if(v==='')return false;let n=Number(v);if(!Number.isInteger(n)||n<0||n>9999){rangeInfo.textContent='0000〜9999で入力してください';rangeInfo.classList.add('range-error');return false}if(mode===1){minInput.value=n;rangeMode=2;rangeBuffer='';rangeTyping=false;minInput.readOnly=true;maxInput.readOnly=false;minInput.classList.remove('range-active');maxInput.classList.add('range-active');setRangeInputFocus(2,true);rangeInfo.textContent='最大値を入力 → Enterで決定';return true}maxInput.value=n;cancelRangeMode();rangeInfo.textContent=`範囲設定完了：${fmt(Number(minInput.value))} 〜 ${fmt(n)} ／ 0キーまたはリセットで適用`;rangeInfo.classList.remove('range-error');updatePendingNotice();return true}
 [minInput,maxInput].forEach(input=>input.addEventListener('input',()=>{if(!rangeMode||input.readOnly)return;let v=normalizeDigits(input.value).replace(/\D/g,'').slice(0,4);if(input.value!==v)input.value=v;rangeBuffer=v;rangeTyping=true}));
@@ -82,17 +82,22 @@ settingsNotice.onclick=()=>{if(settingsNotice.hidden)return;let expanded=setting
 nextBtn.onclick=()=>{if(rangeMode||displayCountMode)return;clearTemporaryNotice();flash(nextBtn);nextNumber()};prevBtn.onclick=()=>{if(rangeMode||displayCountMode)return;clearTemporaryNotice();flash(prevBtn);previousNumber()};autoBtn.onclick=()=>{if(rangeMode||displayCountMode)return;clearTemporaryNotice();flash(autoBtn);toggleAuto()};firstBtn.onclick=()=>{if(rangeMode||displayCountMode)return;clearTemporaryNotice();flash(firstBtn);goFirst()};lastBtn.onclick=()=>{if(rangeMode||displayCountMode)return;clearTemporaryNotice();flash(lastBtn);goLast()};resetBtn.onclick=()=>{if(rangeMode||displayCountMode)return;flash(resetBtn);resetNumbers()};rangeButton.onclick=()=>{if(rangeMode)return;flash(rangeButton);startRangeMode()};decBtn.onclick=()=>{if(rangeMode||displayCountMode)return;clearTemporaryNotice();flash(decBtn);setIntervalIndex(intervalIndex-1)};incBtn.onclick=()=>{if(rangeMode||displayCountMode)return;clearTemporaryNotice();flash(incBtn);setIntervalIndex(intervalIndex+1)};intBtn.onclick=e=>{e.stopPropagation();if(rangeMode||displayCountMode)return;clearTemporaryNotice();flash(intBtn);menu.classList.toggle('open')};document.addEventListener('click',e=>{if(!e.target.closest('.interval-controls'))menu.classList.remove('open')});
 document.addEventListener('keydown',e=>{if(rangeMode){let input=rangeMode===1?minInput:maxInput;if(e.target!==input)return;return}if(displayCountMode){if(e.target!==displayCountInput)return;return}if(e.target.matches('input,select'))return;let k=e.key;if(k==='c'||k==='C'||k==='ｃ'||k==='Ｃ'||e.code==='KeyC'){e.preventDefault();clearTemporaryNotice();flash(displayCountButton);startDisplayCountMode();return}if(k==='b'||k==='B'){e.preventDefault();clearTemporaryNotice();flash(voiceToggle);setVoiceEnabled(!voiceEnabled);if(voiceEnabled)speakNumber();restartTimer();return}if(k==='v'||k==='V'){e.preventDefault();clearTemporaryNotice();flash(voiceSelect);cycleVoice();restartTimer();return}if(k==='/'||k==='?'||k==='？'||k==='・'||e.code==='Slash'){e.preventDefault();flash(rangeButton);startRangeMode();return}if(k==='Enter'||k==='ArrowRight'||k==='ArrowUp'||/^[lLdDwW]$/.test(k)){e.preventDefault();clearTemporaryNotice();flash(nextBtn);nextNumber();return}if(k==='Backspace'||k==='ArrowLeft'||k==='ArrowDown'||/^[aAsSjJ]$/.test(k)){e.preventDefault();clearTemporaryNotice();flash(prevBtn);previousNumber();return}if(k===' '||/^[kKqQ]$/.test(k)){e.preventDefault();clearTemporaryNotice();flash(autoBtn);toggleAuto();return}if(k==='1'){e.preventDefault();clearTemporaryNotice();flash(firstBtn);goFirst();return}if(k==='9'){e.preventDefault();clearTemporaryNotice();flash(lastBtn);goLast();return}if(k==='0'){e.preventDefault();flash(resetBtn);resetNumbers();return}if(k==='<'||k==='＜'||e.code==='Comma'){e.preventDefault();clearTemporaryNotice();flash(decBtn);setIntervalIndex(intervalIndex-1);return}if(k==='>'||k==='＞'||e.code==='Period'){e.preventDefault();clearTemporaryNotice();flash(incBtn);setIntervalIndex(intervalIndex+1);return}});
 // RANGE_INPUT_DEVICE_FIX_V6
-(()=>{const setInputMode=input=>{const mode=input===minInput?1:2;if(rangeMode===0)startRangeMode();rangeMode=mode;rangeBuffer='';rangeTyping=false;minInput.readOnly=mode!==1;maxInput.readOnly=mode!==2;minInput.classList.toggle('range-active',mode===1);maxInput.classList.toggle('range-active',mode===2);rangeInfo.classList.remove('range-error');rangeInfo.textContent=mode===1?'最小値を入力 → Enterで決定':'最大値を入力 → Enterで決定';input.readOnly=false;input.setAttribute('inputmode','numeric');input.focus({preventScroll:true});try{input.select()}catch(_){}};[minInput,maxInput].forEach(input=>{input.addEventListener('pointerdown',e=>{setInputMode(input);e.stopPropagation()},{capture:true});input.addEventListener('click',e=>{if(!input.readOnly){input.focus({preventScroll:true});try{input.select()}catch(_){}}e.stopPropagation()},{capture:true});input.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();e.stopImmediatePropagation();finishRangeInput(input.value,input===minInput?1:2)}else if(e.key==='Escape'){e.preventDefault();e.stopImmediatePropagation();cancelRangeMode()}},{capture:true})})})();
+(()=>{const setInputMode=input=>{const mode=input===minInput?1:2;if(rangeMode===0)startRangeMode();rememberRangeOriginal(input);rangeMode=mode;rangeBuffer='';rangeTyping=false;minInput.readOnly=mode!==1;maxInput.readOnly=mode!==2;minInput.classList.toggle('range-active',mode===1);maxInput.classList.toggle('range-active',mode===2);rangeInfo.classList.remove('range-error');rangeInfo.textContent=mode===1?'最小値を入力 → Enterで決定':'最大値を入力 → Enterで決定';input.readOnly=false;input.setAttribute('inputmode','numeric');input.focus({preventScroll:true});try{input.select()}catch(_){}};[minInput,maxInput].forEach(input=>{input.addEventListener('pointerdown',e=>{setInputMode(input);e.stopPropagation()},{capture:true});input.addEventListener('click',e=>{if(!input.readOnly){input.focus({preventScroll:true});try{input.select()}catch(_){}}e.stopPropagation()},{capture:true});input.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();e.stopImmediatePropagation();finishRangeInput(input.value,input===minInput?1:2)}else if(e.key==='Escape'){e.preventDefault();e.stopImmediatePropagation();cancelRangeMode()}},{capture:true})})})();
 // RANGE_BLANK_TAP_CONFIRM_V1
 (()=>{let blankTapHandled=false;const confirmBlank=()=>{if(rangeMode){const input=rangeMode===1?minInput:maxInput;finishRangeInput(input.value,rangeMode)}else if(displayCountMode)finishDisplayCountInput()};const isProtected=e=>e.target.closest('input,button,select,#settingsNotice');document.addEventListener('pointerup',e=>{if(isProtected(e)){blankTapHandled=false;return}if((!rangeMode&&!displayCountMode)||blankTapHandled)return;blankTapHandled=true;confirmBlank()},{capture:true});document.addEventListener('click',e=>{if(isProtected(e)){blankTapHandled=false;return}if((!rangeMode&&!displayCountMode)||blankTapHandled)return;blankTapHandled=true;confirmBlank()},{capture:true})})();
 rangeButton.title='数字範囲選択を開始';createRandomNumbers();syncInputs();displayNumber();
 function toggleHistory(){if(!historyPanel)return;let collapsed=historyPanel.classList.toggle('collapsed');historyArrow.textContent=collapsed?'▸':'▾';historyToggle.setAttribute('aria-expanded',String(!collapsed));}historyToggle?.addEventListener('click',toggleHistory);historyToggle?.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();toggleHistory()}});
 // INPUT_EDIT_BEHAVIOR_FIX_V1
 (()=>{
+  let rangeOriginalMin='',rangeOriginalMax='';
   const isEditingInput=input=>input===displayCountInput?displayCountMode:(rangeMode!==0 && ((rangeMode===1&&input===minInput)||(rangeMode===2&&input===maxInput)));
   const digitsOnly=text=>/^[0-9０-９]*$/.test(String(text));
   const finishRangeInputV1=(value,mode)=>{
     let v=normalizeDigits(value).replace(/\D/g,'').slice(0,4);
+    if(v===''){
+      const original=mode===1?rangeOriginalMin:rangeOriginalMax;
+      v=normalizeDigits(original).replace(/\D/g,'').slice(0,4);
+    }
     if(v!==''){
       const n=Number(v);
       if(!Number.isInteger(n)||n<0||n>9999){
@@ -105,6 +110,7 @@ function toggleHistory(){if(!historyPanel)return;let collapsed=historyPanel.clas
     if(mode===1){
       minInput.value=v;
       rangeMode=2;rangeBuffer='';rangeTyping=false;
+      rememberRangeOriginal(maxInput);
       minInput.readOnly=true;maxInput.readOnly=false;
       minInput.classList.remove('range-active');maxInput.classList.add('range-active');
       setRangeInputFocus(2,true);
@@ -122,6 +128,11 @@ function toggleHistory(){if(!historyPanel)return;let collapsed=historyPanel.clas
     return true;
   };
   finishRangeInput=finishRangeInputV1;
+
+  const rememberRangeOriginal=input=>{
+    if(input===minInput)rangeOriginalMin=minInput.value;
+    if(input===maxInput)rangeOriginalMax=maxInput.value;
+  };
 
   pendingSnapshot=()=>{
     const minRaw=normalizeDigits(minInput.value).replace(/\D/g,'');
@@ -149,7 +160,8 @@ function toggleHistory(){if(!historyPanel)return;let collapsed=historyPanel.clas
 
   const finishDisplayCountInputV1=()=>{
     if(!displayCountMode)return true;
-    const v=normalizeDigits(displayCountInput.value).replace(/\D/g,'');
+    let v=normalizeDigits(displayCountInput.value).replace(/\D/g,'');
+    if(v==='')v=normalizeDigits(displayCountOriginalValue).replace(/\D/g,'');
     displayCountInput.value=v;
     if(v===''){
       displayCountMode=false;
