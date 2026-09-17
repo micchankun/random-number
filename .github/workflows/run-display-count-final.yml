@@ -58,3 +58,4 @@ jobs:
           git rm -f .github/workflows/apply-display-count-spec.yml .github/workflows/run-display-count-final.yml
           git commit -m "Implement display count settings and behavior"
           git push
+# retry trigger
