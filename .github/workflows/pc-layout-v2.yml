@@ -2,7 +2,8 @@ name: Apply PC layout v2
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
 
 permissions:
   contents: write
@@ -12,22 +13,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Patch PC layout CSS
-        env:
-          IS_BOT: ${{ github.actor == 'github-actions[bot]' }}
+      - name: Patch layout
         run: |
-          if [ "$IS_BOT" = "true" ]; then
-            echo "Skip bot commit"
+          if [ "$GITHUB_ACTOR" = "github-actions[bot]" ]; then
+            git rm -f .github/workflows/pc-layout-v2.yml
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git commit -m 'PC版レイアウト修正処理を終了'
+            git push
             exit 0
           fi
           python3 - <<'PY'
           from pathlib import Path
-          p = Path('index.html')
-          text = p.read_text(encoding='utf-8')
-          marker = '/* PC_LAYOUT_V2 */'
+          p=Path('index.html')
+          text=p.read_text(encoding='utf-8')
+          marker='/* PC_LAYOUT_V2 */'
           if marker in text:
-              raise SystemExit('layout already patched')
-          css = '''
+              raise SystemExit('already patched')
+          css='''
 /* PC_LAYOUT_V2 */
 @media(min-width:901px){
   .container{position:relative}
@@ -61,24 +64,14 @@ jobs:
   .buttons{width:calc(100% - 230px)}
 }
 '''
-          needle = '\n</style>'
+          needle='\n</style>'
           if needle not in text:
               raise SystemExit('style close tag not found')
-          text = text.replace(needle, css + needle, 1)
-          p.write_text(text, encoding='utf-8')
+          p.write_text(text.replace(needle,css+needle,1),encoding='utf-8')
           PY
-      - name: Commit and remove workflow
-        run: |
-          if git diff --quiet -- index.html; then
-            echo "No layout change"
-            git rm .github/workflows/pc-layout-v2.yml
-            git commit -m "PC版レイアウト修正処理を終了"
-            git push
-            exit 0
-          fi
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add index.html
-          git rm .github/workflows/pc-layout-v2.yml
+          git rm -f .github/workflows/pc-layout-v2.yml
           git commit -m 'PC版の配置と履歴表示を調整'
           git push
