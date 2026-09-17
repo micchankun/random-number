@@ -1,0 +1,60 @@
+name: Apply display count final
+on:
+  push:
+    paths:
+      - .github/workflows/run-display-count-final.yml
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply saved display-count patch and finalize
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+
+          wf = Path('.github/workflows/apply-display-count-spec.yml').read_text(encoding='utf-8')
+          start = wf.index('        run: |\n') + len('        run: |\n')
+          end = wf.index('      - name: Commit and clean up\n', start)
+          block = wf[start:end]
+          block = '\n'.join((line[10:] if line.strip() else '') for line in block.splitlines())
+          ns = {}
+          exec(block, ns, ns)
+
+          p = Path('index.html')
+          s = p.read_text(encoding='utf-8')
+          s = s.replace('<span class="key-text">C・c</span>', '<span class="key-text">ｃ・c・C・Ｃ</span>')
+          s = s.replace('範囲：${fmt(before.min)} → ${fmt(after.min)} 〜 ${fmt(before.max)} → ${fmt(after.max)}', '範囲：${fmt(before.min)}〜${fmt(before.max)} → ${fmt(after.min)}〜${fmt(after.max)}')
+          s = s.replace('重複なしのため${fmtCount(before.count)}回から${fmtCount(finalCount)}回に自動調整されました', '重複なしのため${fmtCount(p.count)}回から${fmtCount(finalCount)}回に自動調整されました')
+          p.write_text(s, encoding='utf-8')
+
+      - name: Validate JavaScript
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          s = Path('index.html').read_text(encoding='utf-8')
+          matches = re.findall(r'<script>(.*?)</script>', s, re.S)
+          if len(matches) != 1:
+              raise SystemExit(f'expected 1 script, found {len(matches)}')
+          Path('/tmp/index-check.js').write_text(matches[0], encoding='utf-8')
+          if 'displayCount' not in s or 'settingsNotice' not in s:
+              raise SystemExit('display count implementation missing')
+          if 'RANGE_INPUT_DEVICE_FIX_V6' not in s or 'RANGE_BLANK_TAP_CONFIRM_V1' not in s:
+              raise SystemExit('existing range input safeguards missing')
+          PY
+          node --check /tmp/index-check.js
+
+      - name: Commit and clean up
+        shell: bash
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add index.html
+          git rm -f .github/workflows/apply-display-count-spec.yml .github/workflows/run-display-count-final.yml
+          git commit -m "Implement display count settings and behavior"
+          git push
