@@ -1,10 +1,9 @@
-name: Fix touch range input
+name: Apply reset auto-stop fix
 
 on:
   push:
     paths:
       - '.github/workflows/move-voice-button.yml'
-  workflow_dispatch:
 
 permissions:
   contents: write
@@ -14,69 +13,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Patch range apply behavior
+      - name: Patch reset behavior
         run: |
           python - <<'PY'
           from pathlib import Path
 
-          patch = r'''// RANGE_DEFERRED_APPLY_V1
-          function finishPendingRange(){
-            if(rangeMode!==3)return false;
-            if(!applyRange())return false;
-            if(typeof cancelRange==='function')cancelRange();
-            else if(typeof cancelRangeMode==='function')cancelRangeMode();
-            return true;
-          }
-          function markPendingRange(){
-            rangeMode=3;rangeBuffer='';rangeTyping=false;
-            minInput.readOnly=true;maxInput.readOnly=true;
-            minInput.classList.remove('range-active');maxInput.classList.remove('range-active');
-            minInput.blur();maxInput.blur();
-            let mn=Number(normalizeDigits(minInput.value));
-            let mx=Number(normalizeDigits(maxInput.value));
-            rangeInfo.textContent=`範囲設定完了：${fmt(mn)} 〜 ${fmt(mx)} ／ 0キーで適用`;
-            rangeInfo.classList.remove('range-error');
-          }
-          document.addEventListener('keydown',e=>{
-            if(e.key==='0'&&rangeMode===3){e.preventDefault();e.stopImmediatePropagation();finishPendingRange();return}
-            if(e.key==='Enter'&&rangeMode===2){
-              let value=rangeTyping?rangeBuffer:(rangeMode===1?minInput:maxInput).value;
-              let n=Number(normalizeDigits(value));
-              if(!Number.isInteger(n)||n<0||n>9999)return;
-              e.preventDefault();e.stopImmediatePropagation();
-              maxInput.value=n;markPendingRange();return;
-            }
-          },true);
-          document.addEventListener('pointerdown',e=>{
-            if(rangeMode!==2)return;
-            if(e.target.closest('input,button,select'))return;
-            document.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',code:'Enter',bubbles:true}));
-          },true);
-          const resetControl = typeof resetBtn !== 'undefined' ? resetBtn : reset;
-          [rangeButton,resetControl].filter(Boolean).forEach(b=>b.addEventListener('click',()=>{
-            if(rangeMode===3){setTimeout(finishPendingRange,0)}
-          }));
-          // RANGE_DEFERRED_APPLY_V1_END
-          '''
-
-          for name in ('index.html','mobile.html'):
-              p=Path(name);s=p.read_text(encoding='utf-8')
-              start='// RANGE_DEFERRED_APPLY_V1'
-              end='// RANGE_DEFERRED_APPLY_V1_END'
-              if start in s:
-                  a=s.find(start);b=s.find(end,a)
-                  b=s.find('\n',b)
-                  s=s[:a]+(s[b+1:] if b>=0 else '')
-              pos=s.rfind('</script>')
-              if pos<0: raise SystemExit(f'{name}: script end not found')
-              s=s[:pos]+patch+s[pos:]
-              p.write_text(s,encoding='utf-8')
+          p = Path('index.html')
+          s = p.read_text(encoding='utf-8')
+          old = "function resetNumbers(){clearTemporaryNotice();const d=pendingDiff();if(d.p.count===0){createRandomNumbers();displayNumber();restartTimer();return}applySettings()}"
+          new = "function resetNumbers(){clearTemporaryNotice();autoRunning=false;if(autoTimer)clearTimeout(autoTimer);autoTimer=null;const d=pendingDiff();if(d.p.count===0){createRandomNumbers();displayNumber();return}applySettings()}"
+          if old not in s:
+              raise SystemExit('resetNumbers target not found')
+          p.write_text(s.replace(old, new, 1), encoding='utf-8')
           PY
-      - name: Commit site files
+      - name: Commit site fix and remove temporary workflow
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add index.html mobile.html
-          git diff --cached --quiet && exit 0
-          git commit -m "数字範囲選択を0キー適用方式に変更"
+          git add index.html
+          git rm .github/workflows/move-voice-button.yml
+          git commit -m "リセット時は自動表示を停止"
           git push
