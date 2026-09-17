@@ -1,0 +1,38 @@
+name: temp-all-modifier-keys-fix
+on:
+  push:
+    branches: [main]
+jobs:
+  patch:
+    if: ${{ !contains(github.event.head_commit.message, '全対応キーの修飾キー無効化 完了') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch all keyboard shortcuts
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('index.html')
+          s = p.read_text(encoding='utf-8')
+          old = "document.addEventListener('keydown',e=>{if(rangeMode){let input=rangeMode===1?minInput:maxInput;if(e.target!==input)return;return}if(displayCountMode){if(e.target!==displayCountInput)return;return}if(e.target.matches('input,select'))return;let k=e.key;"
+          new = "document.addEventListener('keydown',e=>{if(rangeMode){let input=rangeMode===1?minInput:maxInput;if(e.target!==input)return;return}if(displayCountMode){if(e.target!==displayCountInput)return;return}if(e.target.matches('input,select'))return;if(e.ctrlKey||e.altKey||e.shiftKey||e.metaKey)return;let k=e.key;"
+          if old not in s:
+              raise SystemExit('target code not found')
+          s = s.replace(old, new, 1)
+          p.write_text(s, encoding='utf-8')
+          print('Patched all keyboard shortcut handling')
+          PY
+      - name: Verify patch
+        run: |
+          grep -F "if(e.ctrlKey||e.altKey||e.shiftKey||e.metaKey)return;let k=e.key;" index.html
+      - name: Commit and remove workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git commit -m "全対応キーの修飾キー無効化 完了"
+          git rm .github/workflows/temp-all-modifier-keys-fix.yml
+          git commit -m "全対応キー修正用ワークフローを削除"
+          git push
