@@ -1,0 +1,68 @@
+name: Fix input restore behavior
+
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-input-restore-on-delete.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch input restore behavior
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('index.html')
+          s = p.read_text(encoding='utf-8')
+
+          old = """// INPUT_EDIT_BEHAVIOR_FIX_V1\n(()=>{\n  const isEditingInput=input=>input===displayCountInput?displayCountMode:(rangeMode!==0 && ((rangeMode===1&&input===minInput)||(rangeMode===2&&input===maxInput)));"""
+          new = """// INPUT_EDIT_BEHAVIOR_FIX_V1\n(()=>{\n  let rangeOriginalMin='',rangeOriginalMax='';\n  const isEditingInput=input=>input===displayCountInput?displayCountMode:(rangeMode!==0 && ((rangeMode===1&&input===minInput)||(rangeMode===2&&input===maxInput)));"""
+          if old not in s: raise SystemExit('V1 marker target not found')
+          s = s.replace(old, new, 1)
+
+          old = """  const finishRangeInputV1=(value,mode)=>{\n    let v=normalizeDigits(value).replace(/\\D/g,'').slice(0,4);\n    if(v!==''){"""
+          new = """  const finishRangeInputV1=(value,mode)=>{\n    let v=normalizeDigits(value).replace(/\\D/g,'').slice(0,4);\n    if(v===''){\n      const original=mode===1?rangeOriginalMin:rangeOriginalMax;\n      v=normalizeDigits(original).replace(/\\D/g,'').slice(0,4);\n    }\n    if(v!==''){"""
+          if old not in s: raise SystemExit('range finish target not found')
+          s = s.replace(old, new, 1)
+
+          old = """  const finishDisplayCountInputV1=()=>{\n    if(!displayCountMode)return true;\n    const v=normalizeDigits(displayCountInput.value).replace(/\\D/g,'');\n    displayCountInput.value=v;\n    if(v===''){\n      displayCountMode=false;"""
+          new = """  const finishDisplayCountInputV1=()=>{\n    if(!displayCountMode)return true;\n    let v=normalizeDigits(displayCountInput.value).replace(/\\D/g,'');\n    if(v==='')v=normalizeDigits(displayCountOriginalValue).replace(/\\D/g,'');\n    displayCountInput.value=v;\n    if(v===''){\n      displayCountMode=false;"""
+          if old not in s: raise SystemExit('display count finish target not found')
+          s = s.replace(old, new, 1)
+
+          old = """  finishRangeInput=finishRangeInputV1;\n\n  pendingSnapshot=()=>{"""
+          new = """  finishRangeInput=finishRangeInputV1;\n\n  const rememberRangeOriginal=input=>{\n    if(input===minInput)rangeOriginalMin=minInput.value;\n    if(input===maxInput)rangeOriginalMax=maxInput.value;\n  };\n\n  pendingSnapshot=()=>{"""
+          if old not in s: raise SystemExit('remember helper target not found')
+          s = s.replace(old, new, 1)
+
+          old = """function startRangeMode(){rangeMode=1;rangeBuffer='';rangeTyping=false;minInput.readOnly=false;"""
+          new = """function startRangeMode(){rangeOriginalMin=minInput.value;rangeOriginalMax=maxInput.value;rangeMode=1;rangeBuffer='';rangeTyping=false;minInput.readOnly=false;"""
+          if old not in s: raise SystemExit('start range target not found')
+          s = s.replace(old, new, 1)
+
+          old = """(()=>{const setInputMode=input=>{const mode=input===minInput?1:2;if(rangeMode===0)startRangeMode();rangeMode=mode;rangeBuffer='';rangeTyping=false;"""
+          new = """(()=>{const setInputMode=input=>{const mode=input===minInput?1:2;if(rangeMode===0)startRangeMode();rememberRangeOriginal(input);rangeMode=mode;rangeBuffer='';rangeTyping=false;"""
+          if old not in s: raise SystemExit('V6 input mode target not found')
+          s = s.replace(old, new, 1)
+
+          old = """      minInput.value=v;\n      rangeMode=2;rangeBuffer='';rangeTyping=false;"""
+          new = """      minInput.value=v;\n      rangeMode=2;rangeBuffer='';rangeTyping=false;\n      rememberRangeOriginal(maxInput);"""
+          if old not in s: raise SystemExit('min-to-max transition target not found')
+          s = s.replace(old, new, 1)
+
+          p.write_text(s,encoding='utf-8')
+          PY
+      - name: Commit site fix and remove temporary workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git rm .github/workflows/fix-input-restore-on-delete.yml
+          git commit -m "入力欄で削除した元の数字を確定時に復元"
+          git push
