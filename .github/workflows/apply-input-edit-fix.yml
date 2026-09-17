@@ -1,0 +1,147 @@
+name: Apply input edit behavior fix
+
+on:
+  push:
+    paths:
+      - '.github/workflows/apply-input-edit-fix.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch input behavior
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          p = Path('index.html')
+          s = p.read_text(encoding='utf-8')
+          marker = '// INPUT_EDIT_BEHAVIOR_FIX_V1'
+          if marker in s:
+              raise SystemExit('patch already applied')
+
+          patch = r'''// INPUT_EDIT_BEHAVIOR_FIX_V1
+          (()=>{
+            const isEditingInput=input=>input===displayCountInput?displayCountMode:(rangeMode!==0 && ((rangeMode===1&&input===minInput)||(rangeMode===2&&input===maxInput)));
+            const digitsOnly=text=>/^[0-9０-９]*$/.test(String(text));
+            const finishRangeInputV1=(value,mode)=>{
+              let v=normalizeDigits(value).replace(/\D/g,'').slice(0,4);
+              if(v!==''){
+                const n=Number(v);
+                if(!Number.isInteger(n)||n<0||n>9999){
+                  rangeInfo.textContent='0000〜9999で入力してください';
+                  rangeInfo.classList.add('range-error');
+                  return false;
+                }
+                v=String(n);
+              }
+              if(mode===1){
+                minInput.value=v;
+                rangeMode=2;rangeBuffer='';rangeTyping=false;
+                minInput.readOnly=true;maxInput.readOnly=false;
+                minInput.classList.remove('range-active');maxInput.classList.add('range-active');
+                setRangeInputFocus(2,true);
+                rangeInfo.textContent='最大値を入力 → Enterで決定';
+                rangeInfo.classList.remove('range-error');
+                return true;
+              }
+              maxInput.value=v;
+              cancelRangeMode();
+              const minLabel=minInput.value===''?'空欄':fmt(Number(minInput.value));
+              const maxLabel=maxInput.value===''?'空欄':fmt(Number(maxInput.value));
+              rangeInfo.textContent=`範囲設定完了：${minLabel} 〜 ${maxLabel} ／ 0キーまたはリセットで適用`;
+              rangeInfo.classList.remove('range-error');
+              updatePendingNotice();
+              return true;
+            };
+            finishRangeInput=finishRangeInputV1;
+
+            pendingSnapshot=()=>{
+              const minRaw=normalizeDigits(minInput.value).replace(/\D/g,'');
+              const maxRaw=normalizeDigits(maxInput.value).replace(/\D/g,'');
+              const raw=normalizeDigits(displayCountInput.value).replace(/\D/g,'');
+              const min=minRaw===''?null:Number(minRaw),max=maxRaw===''?null:Number(maxRaw);
+              let count=null;try{if(raw)count=BigInt(raw)}catch(_){}
+              return {
+                min,max,dup:duplicateSelect.value==='on',count,
+                validRange:minRaw!==''&&maxRaw!==''&&Number.isInteger(min)&&Number.isInteger(max)&&min>=0&&max<=9999&&min<=max,
+                validCount:count!==null&&count>=1n
+              };
+            };
+
+            const formatSettingValue=v=>Number.isInteger(v)?fmt(v):'空欄';
+            showNotice=(text,before,after,temporary)=>{
+              settingsNotice.hidden=false;
+              settingsNoticeText.textContent=text;
+              settingsDetailsLines.innerHTML=`<div class="settings-details-line">範囲：${formatSettingValue(before.min)}〜${formatSettingValue(before.max)} → ${formatSettingValue(after.min)}〜${formatSettingValue(after.max)}</div><div class="settings-details-line">重複：${before.dup?'あり':'なし'} → ${after.dup?'あり':'なし'}</div><div class="settings-details-line">表示回数：${fmtCount(before.count)}回 → ${fmtCount(after.count)}回${temporary?'（自動調整）':''}</div>`;
+              settingsNotice.classList.remove('expanded');
+              settingsNotice.setAttribute('aria-expanded','false');
+              settingsNoticeArrow.textContent='⌄';
+              noticeType=temporary?'temporary':'pending';
+            };
+
+            const finishDisplayCountInputV1=()=>{
+              if(!displayCountMode)return true;
+              const v=normalizeDigits(displayCountInput.value).replace(/\D/g,'');
+              displayCountInput.value=v;
+              if(v===''){
+                displayCountMode=false;
+                displayCountInput.classList.remove('range-active');
+                displayCountInput.blur();
+                rangeInfo.classList.remove('range-error');
+                updatePendingNotice();
+                return true;
+              }
+              let n;try{n=BigInt(v)}catch(_){return false}
+              if(n<1n){
+                rangeInfo.textContent='表示回数は1以上の整数で入力してください';
+                rangeInfo.classList.add('range-error');
+                return false;
+              }
+              displayCountInput.value=n.toString();
+              displayCountMode=false;
+              displayCountInput.classList.remove('range-active');
+              displayCountInput.blur();
+              rangeInfo.classList.remove('range-error');
+              updatePendingNotice();
+              return true;
+            };
+            finishDisplayCountInput=finishDisplayCountInputV1;
+
+            [minInput,maxInput,displayCountInput].forEach(input=>{
+              input.addEventListener('beforeinput',e=>{
+                if(!isEditingInput(input))return;
+                if(e.data!==null&&e.data!==undefined&&!digitsOnly(e.data))e.preventDefault();
+              },{capture:true});
+              input.addEventListener('paste',e=>{
+                if(!isEditingInput(input))return;
+                const text=e.clipboardData?.getData('text')??'';
+                if(!digitsOnly(text))e.preventDefault();
+              },{capture:true});
+              input.addEventListener('drop',e=>{
+                if(!isEditingInput(input))return;
+                const text=e.dataTransfer?.getData('text')??'';
+                if(!digitsOnly(text))e.preventDefault();
+              },{capture:true});
+            });
+          })();
+          // INPUT_EDIT_BEHAVIOR_FIX_V1_END
+          '''
+
+          pos=s.rfind('</script>')
+          if pos<0: raise SystemExit('script end not found')
+          s=s[:pos]+patch+s[pos:]
+          p.write_text(s,encoding='utf-8')
+          PY
+      - name: Commit site fix and remove temporary workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git rm .github/workflows/apply-input-edit-fix.yml
+          git commit -m "入力欄の数字置換と確定動作を修正"
+          git push
