@@ -9,59 +9,49 @@ permissions:
 
 jobs:
   patch-layout:
-    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: Patch PC layout CSS
+        env:
+          IS_BOT: ${{ github.actor == 'github-actions[bot]' }}
         run: |
+          if [ "$IS_BOT" = "true" ]; then
+            echo "Skip bot commit"
+            exit 0
+          fi
           python3 - <<'PY'
           from pathlib import Path
           p = Path('index.html')
           text = p.read_text(encoding='utf-8')
           marker = '/* PC_LAYOUT_V2 */'
           if marker in text:
-              raise SystemExit('already applied')
-          css = r'''
+              raise SystemExit('layout already patched')
+          css = '''
 /* PC_LAYOUT_V2 */
 @media(min-width:901px){
   .container{position:relative}
   #number{transform:translateY(clamp(18px,3vh,42px))}
   .site-description{transform:translateY(clamp(14px,2.4vh,34px))}
   #position{transform:translateY(clamp(12px,2vh,28px))}
-
-  .range-controls,
-  .duplicate-controls,
-  .display-count-controls,
-  #rangeInfo,
-  .settings-notice{
-    position:absolute;
-    right:clamp(20px,4vw,70px);
-    width:min(360px,34vw);
-  }
+  .range-controls,.duplicate-controls,.display-count-controls,#rangeInfo,.settings-notice{position:absolute;right:clamp(20px,4vw,70px);width:min(360px,34vw)}
   .range-controls{top:27%;justify-content:flex-start}
   .duplicate-controls{top:37%;grid-template-columns:auto minmax(0,1fr);justify-content:stretch;gap:8px}
   .display-count-controls{top:47%;justify-content:flex-start}
   #rangeInfo{top:56%;text-align:left}
   .settings-notice{top:60%;text-align:left}
-
-  .range-controls .range-label,
-  .duplicate-controls .range-label,
-  .display-count-controls .range-label{flex-shrink:0}
+  .range-controls .range-label,.duplicate-controls .range-label,.display-count-controls .range-label{flex-shrink:0}
   .range-input{width:88px}
   .display-count-input{width:108px!important}
   .range-button{white-space:nowrap}
   .duplicate-controls .duplicate-select{height:34px;min-height:34px;padding:2px 28px 2px 8px;font-size:13px!important}
-
   .previous-wrap{width:min(760px,calc(100% - 250px));flex:0 0 190px;align-self:flex-start;margin-left:190px;margin-top:clamp(8px,1.5vh,18px)}
   .history-panel{width:250px;height:min(55vh,500px);left:clamp(8px,1.3vw,18px);top:clamp(8px,1.3vw,18px)}
   .history-panel .history-header{height:46px;font-size:18px;padding:0 12px}
   .history-panel #previousNumbers{height:calc(100% - 46px);padding:10px 8px;font-size:18px;line-height:1.4}
   .history-panel .previous-number{width:98px;margin:3px 5px}
-
   .buttons{width:min(760px,calc(100% - 260px));margin-top:clamp(-30px,-3vh,-10px);align-self:center}
 }
-
 @media(min-width:901px) and (max-width:1100px){
   .range-controls,.duplicate-controls,.display-count-controls,#rangeInfo,.settings-notice{right:18px;width:330px}
   .previous-wrap{width:calc(100% - 230px);margin-left:170px}
@@ -71,14 +61,21 @@ jobs:
   .buttons{width:calc(100% - 230px)}
 }
 '''
-          needle='\n</style>'
+          needle = '\n</style>'
           if needle not in text:
-              raise SystemExit('style closing tag not found')
-          text=text.replace(needle,css+needle,1)
-          p.write_text(text,encoding='utf-8')
+              raise SystemExit('style close tag not found')
+          text = text.replace(needle, css + needle, 1)
+          p.write_text(text, encoding='utf-8')
           PY
       - name: Commit and remove workflow
         run: |
+          if git diff --quiet -- index.html; then
+            echo "No layout change"
+            git rm .github/workflows/pc-layout-v2.yml
+            git commit -m "PC版レイアウト修正処理を終了"
+            git push
+            exit 0
+          fi
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add index.html
