@@ -37,6 +37,139 @@ body{background:#111827;color:#fff;font-family:-apple-system,BlinkMacSystemFont,
   .range-controls,.duplicate-controls,.display-count-controls,#rangeInfo,.settings-notice{right:18px;width:330px}.range-controls{top:25%}.duplicate-controls{top:36%}.display-count-controls{top:47%}#rangeInfo{top:56%}.settings-notice{top:61%}
   .previous-wrap{left:18px;width:230px;height:min(58vh,470px)}.history-panel #previousNumbers{font-size:17px}.history-panel .previous-number{width:90px}.buttons{width:calc(100% - 300px);transform:translateY(-8px)}
 }
+
+/* PC_NO_OVERLAP_LAYOUT_V1 */
+@media(min-width:901px){
+  .container{
+    display:block;
+    min-height:max(900px,100dvh);
+    padding:24px;
+    overflow:visible;
+  }
+  #number{
+    position:absolute;
+    top:82px;
+    left:calc(clamp(220px,23vw,300px) + 26px);
+    right:calc(clamp(290px,32vw,400px) + 26px);
+    width:auto;
+    text-align:center;
+    transform:translateY(calc(clamp(24px,4vh,48px) - 38px));
+  }
+  .site-description{
+    position:absolute;
+    top:250px;
+    left:calc(clamp(220px,23vw,300px) + 26px);
+    right:calc(clamp(290px,32vw,400px) + 26px);
+    width:auto;
+    max-width:none;
+    transform:none;
+  }
+  .site-description p{max-width:720px;margin-left:auto;margin-right:auto}
+  #position{
+    position:absolute;
+    top:324px;
+    left:calc(clamp(220px,23vw,300px) + 26px);
+    right:calc(clamp(290px,32vw,400px) + 26px);
+    width:auto;
+    text-align:center;
+    transform:none;
+  }
+  #status{
+    position:absolute;
+    top:350px;
+    left:calc(clamp(220px,23vw,300px) + 26px);
+    right:calc(clamp(290px,32vw,400px) + 26px);
+    width:auto;
+    text-align:center;
+  }
+  .range-controls,.duplicate-controls,.display-count-controls,#rangeInfo,.settings-notice{
+    position:absolute;
+    right:24px;
+    width:min(400px,calc(32vw - 8px));
+    z-index:4;
+  }
+  .range-controls{top:150px;justify-content:flex-start}
+  .range-controls .range-input{width:88px}
+  .range-controls .range-button{white-space:nowrap}
+  .duplicate-controls{
+    top:220px;
+    grid-template-columns:auto minmax(0,1fr);
+    gap:8px;
+  }
+  .duplicate-controls .duplicate-select{
+    height:36px;
+    min-height:36px;
+    padding:2px 24px 2px 8px;
+    font-size:13px!important;
+  }
+  .display-count-controls{top:290px;justify-content:flex-start}
+  .display-count-controls .display-count-input{width:108px!important}
+  .display-count-controls .range-button{white-space:nowrap}
+  #rangeInfo{
+    top:360px;
+    text-align:left;
+    line-height:1.45;
+  }
+  .settings-notice{
+    top:398px;
+    text-align:left;
+    line-height:1.45;
+  }
+  .previous-wrap{
+    position:absolute;
+    left:24px;
+    top:24px;
+    width:clamp(220px,23vw,300px);
+    height:min(520px,calc(100dvh - 48px));
+    min-height:480px;
+    flex:none;
+    margin:0;
+  }
+  .history-panel{width:100%;height:100%}
+  .history-header{height:48px;font-size:19px;padding:0 13px}
+  .history-panel #previousNumbers{
+    height:calc(100% - 48px);
+    padding:10px 8px;
+    font-size:19px;
+    line-height:1.42;
+  }
+  .history-panel .previous-number{width:105px;margin:3px 5px}
+  .buttons{
+    position:absolute;
+    top:430px;
+    left:50%;
+    width:min(650px,calc(100% - 500px));
+    margin:0;
+    transform:translateX(-50%);
+    z-index:3;
+  }
+}
+@media(min-width:901px) and (max-width:1100px){
+  #number{
+    left:246px;
+    right:316px;
+  }
+  .site-description,.site-description p,#position,#status{
+    left:246px;
+    right:316px;
+  }
+  .range-controls,.duplicate-controls,.display-count-controls,#rangeInfo,.settings-notice{
+    right:18px;
+    width:300px;
+  }
+  .previous-wrap{
+    left:18px;
+    width:230px;
+    height:min(520px,calc(100dvh - 36px));
+    min-height:480px;
+    top:18px;
+  }
+  .buttons{
+    width:calc(100% - 500px);
+    top:430px;
+  }
+}
+
 @media(max-width:900px){
   .container{justify-content:flex-start}.site-description{margin-top:0}.previous-wrap{display:block;width:min(760px,100%);height:clamp(100px,18vh,190px);flex:0 0 clamp(100px,18vh,190px)}.history-panel{position:static}.buttons{width:min(760px,100%)}
 }
