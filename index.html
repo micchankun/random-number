@@ -312,8 +312,77 @@ nextBtn.onclick=()=>{if(rangeMode||displayCountMode)return;clearTemporaryNotice(
 document.addEventListener('keydown',e=>{if(rangeMode){let input=rangeMode===1?minInput:maxInput;if(e.target!==input)return;return}if(displayCountMode){if(e.target!==displayCountInput)return;return}if(e.target.matches('input,select'))return;if(e.ctrlKey||e.altKey||e.shiftKey||e.metaKey)return;let k=e.key;if(!e.ctrlKey&&!e.altKey&&!e.shiftKey&&!e.metaKey&&(k==='c'||k==='C'||k==='ｃ'||k==='Ｃ'||e.code==='KeyC')){e.preventDefault();clearTemporaryNotice();flash(displayCountButton);startDisplayCountMode();return}if(k==='b'||k==='B'){e.preventDefault();clearTemporaryNotice();flash(voiceToggle);setVoiceEnabled(!voiceEnabled);if(voiceEnabled)speakNumber();restartTimer();return}if(k==='v'||k==='V'){e.preventDefault();clearTemporaryNotice();flash(voiceSelect);cycleVoice();restartTimer();return}if(k==='/'||k==='?'||k==='？'||k==='・'||e.code==='Slash'){e.preventDefault();flash(rangeButton);startRangeMode();return}if(k==='Enter'||k==='ArrowRight'||k==='ArrowUp'||/^[lLdDwW]$/.test(k)){e.preventDefault();clearTemporaryNotice();flash(nextBtn);nextNumber();return}if(k==='Backspace'||k==='ArrowLeft'||k==='ArrowDown'||/^[aAsSjJ]$/.test(k)){e.preventDefault();clearTemporaryNotice();flash(prevBtn);previousNumber();return}if(k===' '||/^[kKqQ]$/.test(k)){e.preventDefault();clearTemporaryNotice();flash(autoBtn);toggleAuto();return}if(k==='1'){e.preventDefault();clearTemporaryNotice();flash(firstBtn);goFirst();return}if(k==='9'){e.preventDefault();clearTemporaryNotice();flash(lastBtn);goLast();return}if(k==='0'){e.preventDefault();flash(resetBtn);resetNumbers();return}if(k==='<'||k==='＜'||e.code==='Comma'){e.preventDefault();clearTemporaryNotice();flash(decBtn);setIntervalIndex(intervalIndex-1);return}if(k==='>'||k==='＞'||e.code==='Period'){e.preventDefault();clearTemporaryNotice();flash(incBtn);setIntervalIndex(intervalIndex+1);return}});
 // RANGE_INPUT_DEVICE_FIX_V6
 (()=>{const setInputMode=input=>{const mode=input===minInput?1:2;if(rangeMode===0)startRangeMode();window.__randomNumberRememberRangeOriginal?.(input);rangeMode=mode;rangeBuffer='';rangeTyping=false;minInput.readOnly=mode!==1;maxInput.readOnly=mode!==2;minInput.classList.toggle('range-active',mode===1);maxInput.classList.toggle('range-active',mode===2);rangeInfo.classList.remove('range-error');rangeInfo.textContent=mode===1?'最小値を入力 → Enterで決定':'最大値を入力 → Enterで決定';input.readOnly=false;input.setAttribute('inputmode','numeric');input.focus({preventScroll:true});try{input.select()}catch(_){}};[minInput,maxInput].forEach(input=>{input.addEventListener('pointerdown',e=>{setInputMode(input);e.stopPropagation()},{capture:true});input.addEventListener('click',e=>{if(!input.readOnly){input.focus({preventScroll:true});try{input.select()}catch(_){}}e.stopPropagation()},{capture:true});input.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();e.stopImmediatePropagation();finishRangeInput(input.value,input===minInput?1:2)}else if(e.key==='Escape'){e.preventDefault();e.stopImmediatePropagation();cancelRangeMode()}},{capture:true})})})();
-// RANGE_BLANK_TAP_CONFIRM_V1
-(()=>{let blankTapHandled=false;const confirmBlank=()=>{if(rangeMode){const input=rangeMode===1?minInput:maxInput;finishRangeInput(input.value,rangeMode)}else if(displayCountMode)finishDisplayCountInput()};const isProtected=e=>e.target.closest('input,button,select,#settingsNotice');document.addEventListener('pointerup',e=>{if(isProtected(e)){blankTapHandled=false;return}if((!rangeMode&&!displayCountMode)||blankTapHandled)return;blankTapHandled=true;confirmBlank()},{capture:true});document.addEventListener('click',e=>{if(isProtected(e)){blankTapHandled=false;return}if((!rangeMode&&!displayCountMode)||blankTapHandled)return;blankTapHandled=true;confirmBlank()},{capture:true})})();
+// RANGE_BLANK_TAP_CONFIRM_V2
+(()=>{
+  let blankTapHandled=false;
+  let refocusMaxAfterClick=false;
+
+  const isProtected=e=>e.target.closest('input,button,select,#settingsNotice');
+
+  const focusAndSelectMax=()=>{
+    if(rangeMode!==2)return;
+    maxInput.readOnly=false;
+    maxInput.setAttribute('inputmode','numeric');
+    maxInput.focus({preventScroll:true});
+    try{maxInput.select()}catch(_){}
+  };
+
+  const confirmBlank=()=>{
+    if(rangeMode){
+      const mode=rangeMode;
+      const input=mode===1?minInput:maxInput;
+      const ok=finishRangeInput(input.value,mode);
+      if(ok&&mode===1&&rangeMode===2)refocusMaxAfterClick=true;
+      return;
+    }
+    if(displayCountMode)finishDisplayCountInput();
+  };
+
+  document.addEventListener('pointerup',e=>{
+    if(isProtected(e)){
+      blankTapHandled=false;
+      refocusMaxAfterClick=false;
+      return;
+    }
+    if((!rangeMode&&!displayCountMode)||blankTapHandled)return;
+    blankTapHandled=true;
+    confirmBlank();
+  },{capture:true});
+
+  document.addEventListener('click',e=>{
+    if(isProtected(e)){
+      blankTapHandled=false;
+      refocusMaxAfterClick=false;
+      return;
+    }
+
+    if(blankTapHandled){
+      const shouldRefocus=refocusMaxAfterClick;
+      blankTapHandled=false;
+      refocusMaxAfterClick=false;
+      if(shouldRefocus){
+        requestAnimationFrame(()=>{
+          focusAndSelectMax();
+          requestAnimationFrame(focusAndSelectMax);
+        });
+      }
+      return;
+    }
+
+    if(!rangeMode&&!displayCountMode)return;
+    blankTapHandled=true;
+    confirmBlank();
+    const shouldRefocus=refocusMaxAfterClick;
+    blankTapHandled=false;
+    refocusMaxAfterClick=false;
+    if(shouldRefocus){
+      requestAnimationFrame(()=>{
+        focusAndSelectMax();
+        requestAnimationFrame(focusAndSelectMax);
+      });
+    }
+  },{capture:true});
+})();
 rangeButton.title='数字範囲選択を開始';createRandomNumbers();syncInputs();displayNumber();
 function toggleHistory(){if(!historyPanel)return;let collapsed=historyPanel.classList.toggle('collapsed');historyArrow.textContent=collapsed?'▸':'▾';historyToggle.setAttribute('aria-expanded',String(!collapsed));}historyToggle?.addEventListener('click',toggleHistory);historyToggle?.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();toggleHistory()}});
 // INPUT_EDIT_BEHAVIOR_FIX_V1
