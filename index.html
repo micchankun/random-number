@@ -88,11 +88,21 @@ body{background:#111827;color:#fff;font-family:-apple-system,BlinkMacSystemFont,
     width:min(400px,calc(32vw - 8px));
     z-index:4;
   }
-  .range-controls{top:150px;justify-content:flex-start}
+  .range-controls{
+    top:150px;
+    display:grid;
+    grid-template-columns:auto 88px auto auto 88px;
+    justify-content:start;
+  }
   .range-controls .range-input{width:88px}
-  .range-controls .range-button{white-space:nowrap}
+  .range-controls .range-button{
+    grid-column:1/-1;
+    width:100%;
+    margin-top:8px;
+    white-space:nowrap;
+  }
   .duplicate-controls{
-    top:220px;
+    top:238px;
     grid-template-columns:auto minmax(0,1fr);
     gap:8px;
   }
@@ -102,9 +112,19 @@ body{background:#111827;color:#fff;font-family:-apple-system,BlinkMacSystemFont,
     padding:2px 24px 2px 8px;
     font-size:13px!important;
   }
-  .display-count-controls{top:290px;justify-content:flex-start}
+  .display-count-controls{
+    top:292px;
+    display:grid;
+    grid-template-columns:auto minmax(108px,1fr);
+    justify-content:start;
+  }
   .display-count-controls .display-count-input{width:108px!important}
-  .display-count-controls .range-button{white-space:nowrap}
+  .display-count-controls .range-button{
+    grid-column:1/-1;
+    width:100%;
+    margin-top:8px;
+    white-space:nowrap;
+  }
   #rangeInfo{
     top:360px;
     text-align:left;
