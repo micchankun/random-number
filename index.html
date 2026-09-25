@@ -215,6 +215,18 @@ body{background:#111827;color:#fff;font-family:-apple-system,BlinkMacSystemFont,
   }
 }
 
+@media(min-width:601px){
+  #resetButton{
+    grid-column:1/2;
+  }
+  .buttons > .voice-controls{
+    grid-column:2/3;
+    width:100%;
+    min-width:0;
+    grid-template-columns:minmax(0,1fr) minmax(0,1.6fr);
+  }
+}
+
 @media(max-width:900px){
   .container{justify-content:flex-start}.site-description{margin-top:0}.previous-wrap{display:block;width:min(760px,100%);height:clamp(100px,18vh,190px);flex:0 0 clamp(100px,18vh,190px)}.history-panel{position:static}.buttons{width:min(760px,100%)}
 }
