@@ -118,14 +118,14 @@ body{background:#111827;color:#fff;font-family:-apple-system,BlinkMacSystemFont,
   }
   .duplicate-controls{
     top:208px;
-    grid-template-columns:64px 6.4cm;
+    grid-template-columns:64px calc(6.4cm + 1px);
     gap:8px;
     transform:translateX(3px);
   }
   .duplicate-controls .duplicate-select{
-    width:6.4cm!important;
-    min-width:6.4cm!important;
-    max-width:6.4cm!important;
+    width:calc(6.4cm + 1px)!important;
+    min-width:calc(6.4cm + 1px)!important;
+    max-width:calc(6.4cm + 1px)!important;
     height:36px;
     min-height:36px;
     padding:2px 24px 2px 8px;
@@ -134,19 +134,19 @@ body{background:#111827;color:#fff;font-family:-apple-system,BlinkMacSystemFont,
   .display-count-controls{
     top:123px;
     display:grid;
-    grid-template-columns:64px 6.4cm;
+    grid-template-columns:64px calc(6.4cm + 3px);
     justify-content:start;
   }
   .display-count-controls .display-count-input{
-    width:6.4cm!important;
-    min-width:6.4cm!important;
-    max-width:6.4cm!important;
+    width:calc(6.4cm + 3px)!important;
+    min-width:calc(6.4cm + 3px)!important;
+    max-width:calc(6.4cm + 3px)!important;
   }
   .display-count-controls .range-button{
     grid-column:2/-1;
-    width:6.4cm!important;
-    min-width:6.4cm!important;
-    max-width:6.4cm!important;
+    width:calc(6.4cm + 3px)!important;
+    min-width:calc(6.4cm + 3px)!important;
+    max-width:calc(6.4cm + 3px)!important;
     margin-top:-4px;
     white-space:nowrap;
   }
